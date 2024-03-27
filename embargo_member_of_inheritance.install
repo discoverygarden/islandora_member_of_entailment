@@ -1,0 +1,81 @@
+<?php
+
+/**
+ * @file
+ * Misc (un)installation and update hooks.
+ */
+
+/**
+ * Implements hook_schema().
+ */
+function embargo_member_of_inheritance_schema() {
+  $schema = [];
+
+  $schema['embargo_member_of_ancestors'] = [
+    'description' => '',
+    'fields' => [
+      'nid' => [
+        'description' => 'Node ID being described.',
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'size' => 'big',
+        'not null' => TRUE,
+      ],
+      'aid' => [
+        'description' => 'Ancestor node ID.',
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'size' => 'big',
+        // Top-level collections have no ancestor.
+        'not null' => FALSE,
+      ],
+      'ancestor_path' => [
+        'description' => 'Node IDs back to the target ancestor.',
+        'pgsql_type' => 'bigint[]',
+        'not null' => TRUE,
+      ],
+    ],
+    'foreign keys' => [
+      'target_node' => [
+        'table' => 'node',
+        'columns' => ['nid' => 'nid'],
+      ],
+      'ancestor_node' => [
+        'table' => 'node',
+        'columns' => ['aid' => 'nid'],
+      ],
+    ],
+  ];
+
+  return $schema;
+}
+
+/**
+ * Implements hook_install().
+ */
+function embargo_member_of_inheritance_install($is_syncing) {
+  /** @var \Drupal\Core\Database\Connection $connection */
+  $connection = \Drupal::service('database');
+  $transaction = $connection->startTransaction();
+  try {
+    $connection->query(
+      <<<EOQ
+WITH RECURSIVE ancestors(nid::bigint, ancestor::bigint, path::bigint[], is_cycle::bool) AS (
+    SELECT n.nid, NULL, ARRAY[n.nid], false
+    FROM node n
+    WHERE NOT EXISTS (SELECT 1 FROM node__field_member_of fmo WHERE n.nid = fmo.entity_id )
+  UNION
+    SELECT fmou.entity_id, a.nid, a.path || fmou.entity_id, fmou.entity_id = ANY(a.path)
+    FROM ancestors a
+    JOIN node__field_member_of fmou ON fmou.field_member_of_target_id = a.nid
+    WHERE NOT a.is_cycle
+)
+INSERT INTO embargo_member_of_ancestors SELECT nid, ancestor, path FROM ancestors
+EOQ
+    )->execute();
+  }
+  catch (\Exception $e) {
+    $transaction->rollBack();
+    throw $e;
+  }
+}
