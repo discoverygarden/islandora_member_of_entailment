@@ -1,0 +1,7 @@
+---
+services:
+  plugin.manager.islandora_member_of_entailment.database_adapter:
+    class: Drupal\islandora_member_of_entailment\Plugin\DatabaseAdapterManager
+    parent: default_plugin_manager
+    arguments:
+      - '@database'

@@ -10,29 +10,6 @@ use Drupal\node\NodeInterface;
  */
 
 /**
- * Helper; given a node, find its parent nodes.
- *
- * @param \Drupal\node\NodeInterface $node
- *   A node of which to obtain the parents.
- *
- * @return int[]|string[]
- *   The related parent nodes.
- */
-function _islandora_member_of_entailment_get_parents(NodeInterface $node) : array {
-  if (!$node->hasField(IslandoraUtils::MEMBER_OF_FIELD)) {
-    throw new \InvalidArgumentException('Cannot get parents of node without the given relationship.');
-  }
-  /** @var \Drupal\Core\Field\EntityReferenceFieldItemListInterface $list */
-  $list = $node->get(IslandoraUtils::MEMBER_OF_FIELD);
-  return array_map(
-    function (NodeInterface $node) {
-      return $node->id();
-    },
-    $list->referencedEntities(),
-  );
-}
-
-/**
  * Implements hook_ENTITY_TYPE_insert() for node entities.
  */
 function islandora_member_of_entailment_node_insert(EntityInterface $entity) {
@@ -47,29 +24,12 @@ function islandora_member_of_entailment_node_insert(EntityInterface $entity) {
     return;
   }
 
-  /** @var \Drupal\Core\Database\Connection $connection */
-  $connection = \Drupal::service('database');
-  $transaction = $connection->startTransaction();
-  try {
-    $connection->query(<<<EOQ
-WITH derived(nid::bigint, ancestor::bigint, path::bigint[], is_cycle::bool) AS (
-  SELECT :current, a.ancestor, a.path || :current,  :current = ANY(a.path)
-  FROM islandora_member_of_entailment
-  WHERE a.ancestor IN (:parents[])
-)
-INSERT INTO islandora_member_of_entailment SELECT nid, ancestor, path FROM derived
-EOQ,
-      [
-        ':current' => $entity->id(),
-        ':parents[]' => _islandora_member_of_entailment_get_parents($entity),
-      ]
-    );
-  }
-  catch (\Exception $e) {
-    $transaction->rollBack();
-    throw $e;
-  }
+  /** @var \Drupal\islandora_member_of_entailment\Plugin\DatabaseAdapterManagerInterface $manager */
+  $manager = \Drupal::service('plugin.manager.islandora_member_of_entailment.database_adapter');
 
+  $plugin = $manager->getDatabaseAdapterPlugin();
+
+  $plugin->addNode($entity);
 }
 
 /**
@@ -82,63 +42,12 @@ function islandora_member_of_entailment_node_update(EntityInterface $entity) {
     return;
   }
 
-  $original_parents = _islandora_member_of_entailment_get_parents($entity->original);
-  $current_parents = _islandora_member_of_entailment_get_parents($entity);
+  /** @var \Drupal\islandora_member_of_entailment\Plugin\DatabaseAdapterManagerInterface $manager */
+  $manager = \Drupal::service('plugin.manager.islandora_member_of_entailment.database_adapter');
 
-  $new_parents = array_diff($current_parents, $original_parents);
-  $deleted_parents = array_diff($original_parents, $current_parents);
+  $plugin = $manager->getDatabaseAdapterPlugin();
 
-  // If the relationship did not change, return.
-  if (empty($new_parents) && empty($deleted_parents)) {
-    return;
-  }
-
-  /** @var \Drupal\Core\Database\Connection $connection */
-  $connection = \Drupal::service('database');
-  $transaction = $connection->startTransaction();
-  try {
-    // @todo Add entries for nodes that are newly related (attempt to make use
-    // of present LUT to update?).
-    // @todo Delete entries for nodes that are no longer related.
-    // At worst, we can removed everything and add it anew.
-    if ($deleted_parents) {
-      $connection->query(<<<EOQ
-DELETE FROM islandora_member_of_entailment
-WHERE :current IN path AND aid IN (:parents[]);
-EOQ,
-        [
-          ':current' => $entity->id(),
-          ':parents[]' => $deleted_parents,
-        ],
-      )->execute();
-    }
-    if ($new_parents) {
-      $connection->query(
-        <<<EOQ
-WITH RECURSIVE tree(nid::bigint, ancestor::bigint, path::bigint[] , is_cycle::bool) AS (
-    SELECT :current, a.aid, a.path || :current, false
-    FROM islandora_member_of_entailment a
-    WHERE a.aid in (:parents[]) AND NOT (:current = ANY(a.path))
-  UNION
-    SELECT fmo.entity_id, t.ancestor, t.path || fmo.entity_id, fmo.entity_id = ANY(t.path)
-    FROM tree t
-    INNER JOIN node__field_member_of fmo ON fmo.field_member_of_target_id = t.nid
-    WHERE NOT is_cycle
-)
-INSERT INTO islandora_member_of_entailment SELECT nid, ancestor, path FROM tree;
-EOQ,
-      [
-        ':current' => $entity->id(),
-        ':parents[]' => $new_parents,
-      ],
-      )->execute();
-    }
-  }
-  catch (\Exception $e) {
-    $transaction->rollBack();
-    throw $e;
-  }
-
+  $plugin->updateNode($entity);
 }
 
 /**
@@ -156,24 +65,11 @@ function islandora_member_of_entailment_node_delete(EntityInterface $entity) {
     return;
   }
 
-  /** @var \Drupal\Core\Database\Connection $connection */
-  $connection = \Drupal::service('database');
-  $transaction = $connection->startTransaction();
-  try {
-    $connection->query(
-      <<<EOQ
-DELETE FROM islandora_member_of_entailment
-WHERE nid = :current
-OR aid = :current
-OR :current IN path
-EOQ,
-      [
-        ':current' => $entity->id(),
-      ],
-    )->execute();
-  }
-  catch (\Exception $e) {
-    $transaction->rollBack();
-    throw $e;
-  }
+  /** @var \Drupal\islandora_member_of_entailment\Plugin\DatabaseAdapterManagerInterface $manager */
+  $manager = \Drupal::service('plugin.manager.islandora_member_of_entailment.database_adapter');
+
+  $plugin = $manager->getDatabaseAdapterPlugin();
+
+  $plugin->deleteNode($entity);
+
 }

@@ -5,86 +5,27 @@
  * Misc (un)installation and update hooks.
  */
 
-use Drupal\Core\Database\Connection;
-
 /**
  * Implements hook_install().
  */
 function islandora_member_of_entailment_install($is_syncing) {
-  /** @var \Drupal\Core\Database\Connection $connection */
-  $connection = \Drupal::service('database');
+  /** @var \Drupal\islandora_member_of_entailment\Plugin\DatabaseAdapterManagerInterface $manager */
+  $manager = \Drupal::service('plugin.manager.islandora_member_of_entailment.database_adapter');
 
-  _embargo_member_of_inheritance_drop_db($connection);
-  // XXX: hook_schema() is unable to deal with array-valued columns.
-  // XXX: jsonb doesn't quite work instead of arrays, due to expecting/requiring
-  // text, not apparently supporting the list of integers.
-  $connection->query(
-    <<<EOQ
-CREATE TABLE IF NOT EXISTS islandora_member_of_entailment (
-nid bigint,
-aid bigint,
-path bigint[]
-);
-CREATE INDEX IF NOT EXISTS islandora_member_of_entailment_nid_idx ON islandora_member_of_entailment (nid);
-CREATE INDEX IF NOT EXISTS islandora_member_of_entailment_idx ON islandora_member_of_entailment (aid);
-CREATE INDEX IF NOT EXISTS islandora_member_of_entailment_path_idx ON islandora_member_of_entailment USING GIN (path array_ops);
-EOQ,
-    options: [
-      'allow_delimiter_in_query' => TRUE,
-      'allow_square_brackets' => TRUE,
-    ],
-  )->execute();
-  // XXX: Drupal seems to execute this twice on module installation, so to
-  // avoid multiple copies in the table, let's initially truncate.
-  $connection->query(
-    <<<EOQ
-TRUNCATE islandora_member_of_entailment;
-WITH RECURSIVE ancestors(nid, ancestor, path, is_cycle) AS (
-  SELECT n.nid::bigint, NULL::bigint, ARRAY[n.nid::bigint]::bigint[], false::boolean
-  FROM node n
-  WHERE NOT EXISTS (SELECT 1 FROM node__field_member_of fmo WHERE n.nid = fmo.entity_id )
-    AND n.type = 'islandora_object'
-UNION ALL
-  SELECT fmou.entity_id, a.nid, a.path || fmou.entity_id, fmou.entity_id = ANY(a.path)
-  FROM ancestors a, node__field_member_of fmou
-  WHERE fmou.field_member_of_target_id = a.nid
-    AND NOT a.is_cycle
-)
-INSERT INTO islandora_member_of_entailment SELECT nid, ancestor, path FROM ancestors
-EOQ,
-    options: [
-      'allow_delimiter_in_query' => TRUE,
-      'allow_square_brackets' => TRUE,
-    ]
-  )->execute();
-}
+  $plugin = $manager->getDatabaseAdapterPlugin();
 
-/**
- * Helper; drop existing DB items.
- *
- * @param \Drupal\Core\Database\Connection $connection
- *   The DB connection to use.
- */
-function _embargo_member_of_inheritance_drop_db(Connection $connection) : void {
-  $connection->query(
-    <<<EOQ
-DROP INDEX IF EXISTS islandora_member_of_entailment_nid_idx;
-DROP INDEX IF EXISTS islandora_member_of_entailment_aid_idx;
-DROP INDEX IF EXISTS islandora_member_of_entailment_path_idx;
-DROP TABLE IF EXISTS islandora_member_of_entailment;
-EOQ,
-    options: [
-      'allow_delimiter_in_query' => TRUE,
-    ]
-  )->execute();
+  $plugin->schema();
+  $plugin->rebuild();
 }
 
 /**
  * Implements hook_uninstall().
  */
 function embargo_member_of_inheritance_uninstall($is_syncing) {
-  /** @var \Drupal\Core\Database\Connection $connection */
-  $connection = \Drupal::service('database');
+  /** @var \Drupal\islandora_member_of_entailment\Plugin\DatabaseAdapterManagerInterface $manager */
+  $manager = \Drupal::service('plugin.manager.islandora_member_of_entailment.database_adapter');
 
-  _embargo_member_of_inheritance_drop_db($connection);
+  $plugin = $manager->getDatabaseAdapterPlugin();
+
+  $plugin->uninstallSchema();
 }
