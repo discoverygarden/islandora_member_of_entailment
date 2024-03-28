@@ -34,7 +34,7 @@ interface DatabaseAdapterInterface extends PluginInspectionInterface {
    *
    * @see \Drupal\islandora_member_of_entailment\Plugin\DatabaseAdapterInterface::getTableName()
    */
-  public function schema() : void;
+  public function schema() : bool;
 
   /**
    * Drop tables and indices.
@@ -43,12 +43,12 @@ interface DatabaseAdapterInterface extends PluginInspectionInterface {
    *  so allow for other types of things, meaning hook_schema() is not quite
    *  usable.
    */
-  public function uninstallSchema() : void;
+  public function uninstallSchema() : bool;
 
   /**
    * Rebuild table(s).
    */
-  public function rebuild() : void;
+  public function rebuild() : bool;
 
   /**
    * Track the given node.
@@ -56,7 +56,7 @@ interface DatabaseAdapterInterface extends PluginInspectionInterface {
    * @param \Drupal\node\NodeInterface $node
    *   The node to be tracked.
    */
-  public function addNode(NodeInterface $node) : void;
+  public function addNode(NodeInterface $node) : bool;
 
   /**
    * Update tracking of the given node.
@@ -64,7 +64,7 @@ interface DatabaseAdapterInterface extends PluginInspectionInterface {
    * @param \Drupal\node\NodeInterface $node
    *   The node to be tracked.
    */
-  public function updateNode(NodeInterface $node) : void;
+  public function updateNode(NodeInterface $node) : bool;
 
   /**
    * Remove tracking of the given node.
@@ -72,6 +72,6 @@ interface DatabaseAdapterInterface extends PluginInspectionInterface {
    * @param \Drupal\node\NodeInterface $node
    *   The node to be removed from tracking.
    */
-  public function deleteNode(NodeInterface $node) : void;
+  public function deleteNode(NodeInterface $node) : bool;
 
 }

@@ -17,34 +17,35 @@ class Pgsql extends DatabaseAdapterPluginBase {
   /**
    * {@inheritDoc}
    */
-  public function schema(): void {
-    $this->uninstallSchema();
-    // XXX: hook_schema() is unable to deal with array-valued columns.
-    // XXX: jsonb doesn't quite work instead of arrays, due to
-    // expecting/requiring text, not apparently supporting the list of integers.
-    $this->connection->query(
-      <<<EOQ
+  public function schema(): bool {
+    return $this->uninstallSchema() &&
+      // XXX: hook_schema() is unable to deal with array-valued columns.
+      // XXX: jsonb doesn't quite work instead of arrays, due to
+      // expecting/requiring text, not apparently supporting the list of
+      // integers.
+      $this->connection->query(
+        <<<EOQ
 CREATE TABLE IF NOT EXISTS {{$this->getTableName()}} (
-nid bigint,
-aid bigint,
-path bigint[]
+  nid bigint,
+  aid bigint,
+  path bigint[]
 );
 CREATE INDEX IF NOT EXISTS {{$this->getTableName()}_nid_idx} ON {{$this->getTableName()}} (nid);
 CREATE INDEX IF NOT EXISTS {{$this->getTableName()}_idx} ON {{$this->getTableName()}} (aid);
 CREATE INDEX IF NOT EXISTS {{$this->getTableName()}_path_idx} ON {{$this->getTableName()}} USING GIN (path array_ops);
 EOQ,
-      options: [
-        'allow_delimiter_in_query' => TRUE,
-        'allow_square_brackets' => TRUE,
-      ],
-    )->execute();
+        options: [
+          'allow_delimiter_in_query' => TRUE,
+          'allow_square_brackets' => TRUE,
+        ],
+      );
   }
 
   /**
    * {@inheritDoc}
    */
-  public function uninstallSchema(): void {
-    $this->connection->query(
+  public function uninstallSchema(): bool {
+    return $this->connection->query(
       <<<EOQ
 DROP INDEX IF EXISTS {{$this->getTableName()}_nid_idx};
 DROP INDEX IF EXISTS {{$this->getTableName()}_aid_idx};
@@ -54,44 +55,48 @@ EOQ,
       options: [
         'allow_delimiter_in_query' => TRUE,
       ]
-    )->execute();
+    );
   }
 
   /**
    * {@inheritDoc}
    */
-  public function rebuild(): void {
-    $this->connection->query(
-      <<<EOQ
-TRUNCATE {{$this->getTableName()}};
+  public function rebuild(): bool {
+    $this->connection->truncate($this->getTableName())->execute();
+    $this->connection
+      ->query(
+        <<<EOQ
 WITH RECURSIVE ancestors(nid, ancestor, path, is_cycle) AS (
   SELECT n.nid::bigint, NULL::bigint, ARRAY[n.nid::bigint]::bigint[], false::boolean
-  FROM node n
-  WHERE NOT EXISTS ( SELECT 1 FROM node__field_member_of fmo WHERE n.nid = fmo.entity_id )
-    AND n.type = 'islandora_object'
+  FROM {node} n
+  WHERE NOT EXISTS ( SELECT 1 FROM {node__field_member_of} fmo WHERE n.nid = fmo.entity_id )
+    AND n.type IN ( :bundles[] )
 UNION ALL
   SELECT fmou.entity_id, a.nid, a.path || fmou.entity_id, fmou.entity_id = ANY(a.path)
-  FROM ancestors a, node__field_member_of fmou
+  FROM ancestors a, {node__field_member_of} fmou
   WHERE fmou.field_member_of_target_id = a.nid
     AND NOT a.is_cycle
 )
 INSERT INTO {{$this->getTableName()}} SELECT nid, ancestor, path FROM ancestors
 EOQ,
-      options: [
-        'allow_delimiter_in_query' => TRUE,
-        'allow_square_brackets' => TRUE,
-      ],
-    )->execute();
+        [
+          ':bundles[]' => $this->getApplicableBundles(),
+        ],
+        options: [
+          'allow_square_brackets' => TRUE,
+        ],
+      );
+    return TRUE;
   }
 
   /**
    * {@inheritDoc}
    */
-  public function addNode(NodeInterface $node): void {
+  public function addNode(NodeInterface $node): bool {
     $transaction = $this->connection->startTransaction();
     try {
-      $this->connection->query(<<<EOQ
-WITH derived(nid::bigint, ancestor::bigint, path::bigint[], is_cycle::bool) AS (
+      return $this->connection->query(<<<EOQ
+WITH derived(nid, ancestor, path, is_cycle) AS (
   SELECT :current, a.ancestor, a.path || :current,  :current = ANY(a.path)
   FROM {{$this->getTableName()}}
   WHERE a.ancestor IN (:parents[])
@@ -105,7 +110,7 @@ EOQ,
         [
           'allow_square_brackets' => TRUE,
         ],
-      )->execute();
+      );
     }
     catch (\Exception $e) {
       $transaction->rollBack();
@@ -116,12 +121,12 @@ EOQ,
   /**
    * {@inheritDoc}
    */
-  public function updateNode(NodeInterface $node): void {
+  public function updateNode(NodeInterface $node): bool {
     [$deleted_parents, $new_parents] = $this->getChangedParents($node);
 
     // If the relationship did not change, return.
     if (empty($new_parents) && empty($deleted_parents)) {
-      return;
+      return TRUE;
     }
 
     $transaction = $this->connection->startTransaction();
@@ -130,28 +135,30 @@ EOQ,
       // of present LUT to update?).
       // @todo Delete entries for nodes that are no longer related.
       // At worst, we can removed everything and add it anew.
+      $delete_status = TRUE;
       if ($deleted_parents) {
-        $this->connection->query(<<<EOQ
+        $delete_status = $this->connection->query(<<<EOQ
 DELETE FROM {{$this->getTableName()}}
-WHERE :current IN path AND aid IN (:parents[]);
+WHERE :current = ANY(path) AND aid IN (:parents[]);
 EOQ,
           [
             ':current' => $node->id(),
             ':parents[]' => $deleted_parents,
           ],
-        )->execute();
+        );
       }
+      $new_status = TRUE;
       if ($new_parents) {
-        $this->connection->query(
+        $new_status = $this->connection->query(
           <<<EOQ
-WITH RECURSIVE tree(nid::bigint, ancestor::bigint, path::bigint[] , is_cycle::bool) AS (
-    SELECT :current, a.aid, a.path || :current, false
+WITH RECURSIVE tree(nid, ancestor, path , is_cycle) AS (
+    SELECT CAST( :current AS bigint ), a.aid, a.path || CAST( :current AS bigint ), false
     FROM {{$this->getTableName()}} a
-    WHERE a.aid in (:parents[]) AND NOT (:current = ANY(a.path))
+    WHERE a.aid in ( :parents[] ) AND NOT (:current = ANY(a.path))
   UNION ALL
     SELECT fmo.entity_id, t.ancestor, t.path || fmo.entity_id, fmo.entity_id = ANY(t.path)
     FROM tree t
-    INNER JOIN node__field_member_of fmo ON fmo.field_member_of_target_id = t.nid
+    INNER JOIN {node__field_member_of} fmo ON fmo.field_member_of_target_id = t.nid
     WHERE NOT is_cycle
 )
 INSERT INTO {{$this->getTableName()}} SELECT nid, ancestor, path FROM tree;
@@ -160,11 +167,13 @@ EOQ,
             ':current' => $node->id(),
             ':parents[]' => $new_parents,
           ],
-          [
+          options: [
             'allow_square_brackets' => TRUE,
           ],
-        )->execute();
+        );
       }
+
+      return $delete_status && $new_status;
     }
     catch (\Exception $e) {
       $transaction->rollBack();
@@ -175,10 +184,10 @@ EOQ,
   /**
    * {@inheritDoc}
    */
-  public function deleteNode(NodeInterface $node): void {
+  public function deleteNode(NodeInterface $node): bool {
     $transaction = $this->connection->startTransaction();
     try {
-      $this->connection->query(
+      return $this->connection->query(
         <<<EOQ
 DELETE FROM {{$this->getTableName()}}
 WHERE nid = :current
@@ -191,7 +200,7 @@ EOQ,
         [
           'allow_square_brackets' => TRUE,
         ],
-      )->execute();
+      );
     }
     catch (\Exception $e) {
       $transaction->rollBack();

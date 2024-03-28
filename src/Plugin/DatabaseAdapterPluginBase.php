@@ -4,6 +4,7 @@ namespace Drupal\islandora_member_of_entailment\Plugin;
 
 use Drupal\Core\Database\Connection;
 use Drupal\Core\DependencyInjection\DependencySerializationTrait;
+use Drupal\Core\Entity\EntityFieldManagerInterface;
 use Drupal\Core\Plugin\ContainerFactoryPluginInterface;
 use Drupal\Core\Plugin\PluginBase;
 use Drupal\islandora\IslandoraUtils;
@@ -25,12 +26,20 @@ abstract class DatabaseAdapterPluginBase extends PluginBase implements DatabaseA
   protected Connection $connection;
 
   /**
+   * The entity field manager service.
+   *
+   * @var \Drupal\Core\Entity\EntityFieldManagerInterface
+   */
+  protected EntityFieldManagerInterface $entityFieldManager;
+
+  /**
    * {@inheritDoc}
    */
   public static function create(ContainerInterface $container, array $configuration, $plugin_id, $plugin_definition) : self {
     $instance = new static($configuration, $plugin_id, $plugin_definition);
 
     $instance->connection = $container->get('database');
+    $instance->entityFieldManager = $container->get('entity_field.manager');
 
     return $instance;
   }
@@ -84,6 +93,16 @@ abstract class DatabaseAdapterPluginBase extends PluginBase implements DatabaseA
    */
   public function getTableName(): string {
     return 'islandora_member_of_entailment';
+  }
+
+  /**
+   * Helper; get the applicable bundle names.
+   *
+   * @return string[]
+   *   The names of applicable bundles.
+   */
+  protected function getApplicableBundles() : array {
+    return $this->entityFieldManager->getFieldMap()['node'][IslandoraUtils::MEMBER_OF_FIELD]['bundles'];
   }
 
 }

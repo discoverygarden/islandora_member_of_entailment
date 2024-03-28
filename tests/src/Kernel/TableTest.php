@@ -3,7 +3,6 @@
 namespace Drupal\Tests\islandora_member_of_entailment\Kernel;
 
 use Drupal\Core\Database\Connection;
-use Drupal\Core\DependencyInjection\DependencySerializationTrait;
 use Drupal\islandora\IslandoraUtils;
 use Drupal\islandora_member_of_entailment\Plugin\DatabaseAdapterInterface;
 use Drupal\islandora_member_of_entailment\Plugin\DatabaseAdapterManagerInterface;
@@ -14,8 +13,6 @@ use Drupal\Tests\islandora_test_support\Kernel\AbstractIslandoraKernelTestBase;
  */
 class TableTest extends AbstractIslandoraKernelTestBase {
 
-  use DependencySerializationTrait;
-
   /**
    * The database adapter manager service.
    *
@@ -24,7 +21,7 @@ class TableTest extends AbstractIslandoraKernelTestBase {
   protected DatabaseAdapterManagerInterface $adapterManager;
 
   /**
-   * The presently appliable adapter implementation.
+   * The presently applicable adapter implementation.
    *
    * @var \Drupal\islandora_member_of_entailment\Plugin\DatabaseAdapterInterface
    */
@@ -46,62 +43,96 @@ class TableTest extends AbstractIslandoraKernelTestBase {
 
     $this->adapterManager = $this->container->get('plugin.manager.islandora_member_of_entailment.database_adapter');
     $this->adapter = $this->adapterManager->getDatabaseAdapterPlugin();
-    $this->adapter->schema();
+    $this->assertTrue($this->adapter->schema(), 'Schema installed successfully.');
 
     $this->connection = $this->container->get('database');
+
+    $this->createEntityReferenceField('node',
+      $this->contentType->id(), IslandoraUtils::MEMBER_OF_FIELD,
+      "Member Of", $this->contentType->getEntityType()->getBundleOf());
+  }
+
+  /**
+   * {@inheritDoc}
+   */
+  public function tearDown(): void {
+    $this->adapterManager = $this->container->get('plugin.manager.islandora_member_of_entailment.database_adapter');
+    $this->adapter = $this->adapterManager->getDatabaseAdapterPlugin();
+    $this->adapter->uninstallSchema();
+
+    parent::tearDown();
+  }
+
+  /**
+   * Helper; test contents of node LUT table.
+   *
+   * @param array $expected
+   *   The expected contents.
+   * @param string $message
+   *   Associated assertion message.
+   */
+  protected function assertTableContents(array $expected, string $message = '') : void {
+    $query = $this->connection->select($this->adapter->getTableName(), 't')
+      ->fields('t', ['nid', 'aid'])
+      ->execute();
+    $results = $query->fetchAll(\PDO::FETCH_ASSOC);
+
+    $this->assertEqualsCanonicalizing($expected, $results, $message);
+  }
+
+  /**
+   * Data provider to test with full regeneration instead of LUT maintenance.
+   */
+  public function commonData() {
+    return [
+      //'Maintaining table' => [FALSE],
+      'Regenerating table' => [TRUE],
+    ];
   }
 
   /**
    * Test basic node creation.
+   *
+   * @dataProvider commonData
    */
-  public function testBasicCreation() {
+  public function testBasicCreation(bool $regenerate) : void {
     $alpha = $this->createNode();
-    $alpha->save();
+    $this->assertEquals(SAVED_UPDATED, $alpha->save());
 
-    $this->assertCount(
-      1,
-      $this->connection->select($this->adapter->getTableName(), 't')
-        ->fields('t', [])
-        ->execute(),
-      'Has the single item.',
+    if ($regenerate) {
+      $this->assertTrue($this->adapter->rebuild());
+    }
+
+    $this->assertTableContents(
+      [
+        ['nid' => $alpha->id(), 'aid' => NULL],
+      ],
+      'Has the expected item.',
     );
 
     $bravo = $this->createNode();
     $bravo->get(IslandoraUtils::MEMBER_OF_FIELD)->appendItem($alpha);
-    $bravo->save();
+    $this->assertEquals(SAVED_UPDATED, $bravo->save());
 
-    $query = $this->connection->select($this->adapter->getTableName(), 't')
-      ->fields('t');
-    $this->assertCount(
-      2,
-      $query->execute(),
-      'Has only two items.'
-    );
+    if ($regenerate) {
+      $this->assertTrue($this->adapter->rebuild());
+    }
 
-    $query = $this->connection->select($this->adapter->getTableName(), 't')
-      ->fields('t');
-    $query->condition(
-      $query->orConditionGroup()
-        ->condition(
-          $query->andConditionGroup()
-            ->condition('nid', $alpha->id())
-            ->isNull('aid')
-        )
-        ->condition(
-          $query->andConditionGroup()
-            ->condition('nid', $bravo->id())
-            ->condition('aid', $alpha->id())
-        )
-    );
-
-    $this->assertCount(
-      2,
-      $query->execute(),
-      'Has the two specific items.',
+    $this->assertTableContents(
+      [
+        ['nid' => $alpha->id(), 'aid' => NULL],
+        ['nid' => $bravo->id(), 'aid' => $alpha->id()],
+      ],
+      'Has the expected items.',
     );
   }
 
-  public function testTransitiveCreation() {
+  /**
+   * Test basic transitive node creation.
+   *
+   * @dataProvider commonData
+   */
+  public function testBasicTransitiveCreation(bool $regenerate) : void {
     $alpha = $this->createNode();
     $alpha->save();
     $bravo = $this->createNode();
@@ -111,45 +142,139 @@ class TableTest extends AbstractIslandoraKernelTestBase {
     $charlie->get(IslandoraUtils::MEMBER_OF_FIELD)->appendItem($bravo);
     $charlie->save();
 
-    $query = $this->connection->select($this->adapter->getTableName(), 't')
-      ->fields('t');
-    $this->assertCount(
-      4,
-      $query->execute(),
-      'Has only four items.'
+    if ($regenerate) {
+      $this->assertTrue($this->adapter->rebuild());
+    }
+
+    $this->assertTableContents(
+      [
+        ['nid' => $alpha->id(), 'aid' => NULL],
+        ['nid' => $bravo->id(), 'aid' => $alpha->id()],
+        ['nid' => $charlie->id(), 'aid' => $alpha->id()],
+        ['nid' => $charlie->id(), 'aid' => $bravo->id()],
+      ],
+      'Has the expected contents.',
     );
 
-    $query = $this->connection->select($this->adapter->getTableName(), 't')
-      ->fields('t');
-    $query->condition(
-      $query->orConditionGroup()
-        ->condition(
-          $query->andConditionGroup()
-            ->condition('nid', $alpha->id())
-            ->isNull('aid')
-        )
-        ->condition(
-          $query->andConditionGroup()
-            ->condition('nid', $bravo->id())
-            ->condition('aid', $alpha->id())
-        )
-        ->condition(
-          $query->andConditionGroup()
-            ->condition('nid', $charlie->id())
-            ->condition('aid', $alpha->id())
-        )
-        ->condition(
-          $query->andConditionGroup()
-            ->condition('nid', $charlie->id())
-            ->condition('aid', $bravo->id())
-        )
+  }
+
+  /**
+   * Test basic multiple node creation.
+   *
+   * @dataProvider commonData
+   */
+  public function testBasicMultipleCreation(bool $regenerate) : void {
+    $alpha = $this->createNode();
+    $alpha->save();
+    $bravo = $this->createNode();
+    $bravo->get(IslandoraUtils::MEMBER_OF_FIELD)->appendItem($alpha);
+    $bravo->save();
+    $charlie = $this->createNode();
+    $charlie->get(IslandoraUtils::MEMBER_OF_FIELD)->appendItem($alpha);
+    $charlie->save();
+
+    if ($regenerate) {
+      $this->assertTrue($this->adapter->rebuild());
+    }
+
+    $this->assertTableContents(
+      [
+        ['nid' => $alpha->id(), 'aid' => NULL],
+        ['nid' => $bravo->id(), 'aid' => $alpha->id()],
+        ['nid' => $charlie->id(), 'aid' => $alpha->id()],
+      ],
+      'Has the expected contents.',
     );
 
-    $this->assertCount(
-      4,
-      $query->execute(),
-      'Has the two specific items.',
+  }
+
+  /**
+   * Test basic multiple node creation.
+   *
+   * @dataProvider commonData
+   */
+  public function testDiamondCreation(bool $regenerate) : void {
+    $alpha = $this->createNode();
+    $alpha->save();
+    $bravo = $this->createNode();
+    $bravo->get(IslandoraUtils::MEMBER_OF_FIELD)->appendItem($alpha);
+    $bravo->save();
+    $charlie = $this->createNode();
+    $charlie->get(IslandoraUtils::MEMBER_OF_FIELD)->appendItem($alpha);
+    $charlie->save();
+    $delta = $this->createNode();
+    $delta_members = $delta->get(IslandoraUtils::MEMBER_OF_FIELD);
+    $delta_members->appendItem($bravo);
+    $delta_members->appendItem($charlie);
+    $delta->save();
+
+    if ($regenerate) {
+      $this->assertTrue($this->adapter->rebuild());
+    }
+
+    $this->assertTableContents(
+      [
+        ['nid' => $alpha->id(), 'aid' => NULL],
+        ['nid' => $bravo->id(), 'aid' => $alpha->id()],
+        ['nid' => $charlie->id(), 'aid' => $alpha->id()],
+        ['nid' => $delta->id(), 'aid' => $alpha->id()],
+        // XXX: Yes, expecting multiple of these, with multiple routes back.
+        ['nid' => $delta->id(), 'aid' => $alpha->id()],
+        ['nid' => $delta->id(), 'aid' => $bravo->id()],
+        ['nid' => $delta->id(), 'aid' => $charlie->id()],
+      ],
+      'Has the expected contents.',
     );
+
+  }
+
+  /**
+   * Test basic multiple node creation.
+   *
+   * @dataProvider commonData
+   */
+  public function testTransitionViaDiamondCreation(bool $regenerate) : void {
+    $alpha = $this->createNode();
+    $alpha->save();
+    $bravo = $this->createNode();
+    $bravo->get(IslandoraUtils::MEMBER_OF_FIELD)->appendItem($alpha);
+    $bravo->save();
+    $charlie = $this->createNode();
+    $charlie->get(IslandoraUtils::MEMBER_OF_FIELD)->appendItem($alpha);
+    $charlie->save();
+    $delta = $this->createNode();
+    $delta_members = $delta->get(IslandoraUtils::MEMBER_OF_FIELD);
+    $delta_members->appendItem($bravo);
+    $delta_members->appendItem($charlie);
+    $delta->save();
+    $echo = $this->createNode();
+    $echo->get(IslandoraUtils::MEMBER_OF_FIELD)->appendItem($delta);
+    $echo->save();
+
+    if ($regenerate) {
+      $this->assertTrue($this->adapter->rebuild());
+    }
+
+    $this->assertTableContents(
+      [
+        ['nid' => $alpha->id(), 'aid' => NULL],
+        ['nid' => $bravo->id(), 'aid' => $alpha->id()],
+        ['nid' => $charlie->id(), 'aid' => $alpha->id()],
+        ['nid' => $delta->id(), 'aid' => $alpha->id()],
+        // XXX: Yes, expecting multiple of these, with multiple routes back.
+        ['nid' => $delta->id(), 'aid' => $alpha->id()],
+        ['nid' => $delta->id(), 'aid' => $bravo->id()],
+        ['nid' => $delta->id(), 'aid' => $charlie->id()],
+        ['nid' => $echo->id(), 'aid' => $alpha->id()],
+        // XXX: Yes, expecting multiple of these, with multiple routes back.
+        ['nid' => $echo->id(), 'aid' => $alpha->id()],
+        ['nid' => $echo->id(), 'aid' => $bravo->id()],
+        ['nid' => $echo->id(), 'aid' => $charlie->id()],
+        ['nid' => $echo->id(), 'aid' => $delta->id()],
+      ],
+      'Has the expected contents.',
+    );
+
   }
 
 }
