@@ -4,6 +4,7 @@ namespace Drupal\islandora_member_of_entailment\Plugin;
 
 use Drupal\Core\Cache\CacheBackendInterface;
 use Drupal\Core\Database\Connection;
+use Drupal\Core\DependencyInjection\DependencySerializationTrait;
 use Drupal\Core\Extension\ModuleHandlerInterface;
 use Drupal\Core\Plugin\DefaultPluginManager;
 use Drupal\islandora_member_of_entailment\Annotation\DatabaseAdapter;
@@ -11,7 +12,9 @@ use Drupal\islandora_member_of_entailment\Annotation\DatabaseAdapter;
 /**
  * Database adapter manager service implementation.
  */
-class DatabaseAdapterManager extends DefaultPluginManager {
+class DatabaseAdapterManager extends DefaultPluginManager implements DatabaseAdapterManagerInterface {
+
+  use DependencySerializationTrait;
 
   /**
    * Constructor.
@@ -38,7 +41,11 @@ class DatabaseAdapterManager extends DefaultPluginManager {
    * {@inheritDoc}
    */
   public function getDatabaseAdapterPlugin() : DatabaseAdapterInterface {
-    return $this->createInstance($this->connection->driver());
+    $instance = $this->createInstance($this->connection->driver());
+
+    assert($instance instanceof DatabaseAdapterInterface);
+
+    return $instance;
   }
 
 }

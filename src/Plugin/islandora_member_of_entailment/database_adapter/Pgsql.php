@@ -63,11 +63,11 @@ EOQ,
   public function rebuild(): void {
     $this->connection->query(
       <<<EOQ
-TRUNCATE {$this->getTableName()};
+TRUNCATE {{$this->getTableName()}};
 WITH RECURSIVE ancestors(nid, ancestor, path, is_cycle) AS (
   SELECT n.nid::bigint, NULL::bigint, ARRAY[n.nid::bigint]::bigint[], false::boolean
   FROM node n
-  WHERE NOT EXISTS (SELECT 1 FROM node__field_member_of fmo WHERE n.nid = fmo.entity_id )
+  WHERE NOT EXISTS ( SELECT 1 FROM node__field_member_of fmo WHERE n.nid = fmo.entity_id )
     AND n.type = 'islandora_object'
 UNION ALL
   SELECT fmou.entity_id, a.nid, a.path || fmou.entity_id, fmou.entity_id = ANY(a.path)
@@ -80,7 +80,7 @@ EOQ,
       options: [
         'allow_delimiter_in_query' => TRUE,
         'allow_square_brackets' => TRUE,
-      ]
+      ],
     )->execute();
   }
 
@@ -190,7 +190,7 @@ EOQ,
         ],
         [
           'allow_square_brackets' => TRUE,
-        ]
+        ],
       )->execute();
     }
     catch (\Exception $e) {

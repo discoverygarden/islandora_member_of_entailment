@@ -3,6 +3,7 @@
 namespace Drupal\islandora_member_of_entailment\Plugin;
 
 use Drupal\Core\Database\Connection;
+use Drupal\Core\DependencyInjection\DependencySerializationTrait;
 use Drupal\Core\Plugin\ContainerFactoryPluginInterface;
 use Drupal\Core\Plugin\PluginBase;
 use Drupal\islandora\IslandoraUtils;
@@ -13,6 +14,8 @@ use Symfony\Component\DependencyInjection\ContainerInterface;
  * Abstract database adapter plugin base implementation.
  */
 abstract class DatabaseAdapterPluginBase extends PluginBase implements DatabaseAdapterInterface, ContainerFactoryPluginInterface {
+
+  use DependencySerializationTrait;
 
   /**
    * The database connection service.
