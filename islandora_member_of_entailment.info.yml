@@ -6,4 +6,5 @@ description: >
 package: Islandora
 core_version_requirement: ^10
 dependencies:
+  - drupal:node
   - islandora:islandora
