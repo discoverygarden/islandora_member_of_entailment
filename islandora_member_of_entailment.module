@@ -18,7 +18,7 @@ use Drupal\node\NodeInterface;
  * @return int[]|string[]
  *   The related parent nodes.
  */
-function _embargo_member_of_inheritance_get_parents(NodeInterface $node) : array {
+function _islandora_member_of_entailment_get_parents(NodeInterface $node) : array {
   if (!$node->hasField(IslandoraUtils::MEMBER_OF_FIELD)) {
     throw new \InvalidArgumentException('Cannot get parents of node without the given relationship.');
   }
@@ -35,7 +35,7 @@ function _embargo_member_of_inheritance_get_parents(NodeInterface $node) : array
 /**
  * Implements hook_ENTITY_TYPE_insert() for node entities.
  */
-function embargo_member_of_inheritance_node_insert(EntityInterface $entity) {
+function islandora_member_of_entailment_node_insert(EntityInterface $entity) {
   assert($entity instanceof NodeInterface);
 
   if (!$entity->hasField(IslandoraUtils::MEMBER_OF_FIELD)) {
@@ -54,14 +54,14 @@ function embargo_member_of_inheritance_node_insert(EntityInterface $entity) {
     $connection->query(<<<EOQ
 WITH derived(nid::bigint, ancestor::bigint, path::bigint[], is_cycle::bool) AS (
   SELECT :current, a.ancestor, a.path || :current,  :current = ANY(a.path)
-  FROM embargo_member_of_ancestors
+  FROM islandora_member_of_entailment
   WHERE a.ancestor IN (:parents[])
 )
-INSERT INTO embargo_member_of_ancestors SELECT nid, ancestor, path FROM derived
+INSERT INTO islandora_member_of_entailment SELECT nid, ancestor, path FROM derived
 EOQ,
       [
         ':current' => $entity->id(),
-        ':parents[]' => _embargo_member_of_inheritance_get_parents($entity),
+        ':parents[]' => _islandora_member_of_entailment_get_parents($entity),
       ]
     );
   }
@@ -75,15 +75,15 @@ EOQ,
 /**
  * Implements hook_ENTITY_TYPE_update() for node entities.
  */
-function embargo_member_of_inheritance_node_update(EntityInterface $entity) {
+function islandora_member_of_entailment_node_update(EntityInterface $entity) {
   assert($entity instanceof NodeInterface);
 
   if (!$entity->hasField(IslandoraUtils::MEMBER_OF_FIELD)) {
     return;
   }
 
-  $original_parents = _embargo_member_of_inheritance_get_parents($entity->original);
-  $current_parents = _embargo_member_of_inheritance_get_parents($entity);
+  $original_parents = _islandora_member_of_entailment_get_parents($entity->original);
+  $current_parents = _islandora_member_of_entailment_get_parents($entity);
 
   $new_parents = array_diff($current_parents, $original_parents);
   $deleted_parents = array_diff($original_parents, $current_parents);
@@ -103,7 +103,7 @@ function embargo_member_of_inheritance_node_update(EntityInterface $entity) {
     // At worst, we can removed everything and add it anew.
     if ($deleted_parents) {
       $connection->query(<<<EOQ
-DELETE FROM embargo_member_of_ancestors
+DELETE FROM islandora_member_of_entailment
 WHERE :current IN path AND aid IN (:parents[]);
 EOQ,
         [
@@ -117,7 +117,7 @@ EOQ,
         <<<EOQ
 WITH RECURSIVE tree(nid::bigint, ancestor::bigint, path::bigint[] , is_cycle::bool) AS (
     SELECT :current, a.aid, a.path || :current, false
-    FROM embargo_member_of_ancestors a
+    FROM islandora_member_of_entailment a
     WHERE a.aid in (:parents[]) AND NOT (:current = ANY(a.path))
   UNION
     SELECT fmo.entity_id, t.ancestor, t.path || fmo.entity_id, fmo.entity_id = ANY(t.path)
@@ -125,7 +125,7 @@ WITH RECURSIVE tree(nid::bigint, ancestor::bigint, path::bigint[] , is_cycle::bo
     INNER JOIN node__field_member_of fmo ON fmo.field_member_of_target_id = t.nid
     WHERE NOT is_cycle
 )
-INSERT INTO embargo_member_of_ancestors SELECT nid, ancestor, path FROM tree;
+INSERT INTO islandora_member_of_entailment SELECT nid, ancestor, path FROM tree;
 EOQ,
       [
         ':current' => $entity->id(),
@@ -144,7 +144,7 @@ EOQ,
 /**
  * Implements hook_ENTITY_TYPE_delete() for node entities.
  */
-function embargo_member_of_inheritance_node_delete(EntityInterface $entity) {
+function islandora_member_of_entailment_node_delete(EntityInterface $entity) {
   assert($entity instanceof NodeInterface);
 
   if (!$entity->hasField(IslandoraUtils::MEMBER_OF_FIELD)) {
@@ -162,7 +162,7 @@ function embargo_member_of_inheritance_node_delete(EntityInterface $entity) {
   try {
     $connection->query(
       <<<EOQ
-DELETE FROM embargo_member_of_ancestors
+DELETE FROM islandora_member_of_entailment
 WHERE nid = :current
 OR aid = :current
 OR :current IN path

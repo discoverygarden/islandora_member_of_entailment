@@ -10,7 +10,7 @@ use Drupal\Core\Database\Connection;
 /**
  * Implements hook_install().
  */
-function embargo_member_of_inheritance_install($is_syncing) {
+function islandora_member_of_entailment_install($is_syncing) {
   /** @var \Drupal\Core\Database\Connection $connection */
   $connection = \Drupal::service('database');
 
@@ -20,14 +20,14 @@ function embargo_member_of_inheritance_install($is_syncing) {
   // text, not apparently supporting the list of integers.
   $connection->query(
     <<<EOQ
-CREATE TABLE IF NOT EXISTS embargo_member_of_ancestors (
+CREATE TABLE IF NOT EXISTS islandora_member_of_entailment (
 nid bigint,
 aid bigint,
 path bigint[]
 );
-CREATE INDEX IF NOT EXISTS embargo_member_of_ancestors_nid_idx ON embargo_member_of_ancestors (nid);
-CREATE INDEX IF NOT EXISTS embargo_member_of_ancestors_aid_idx ON embargo_member_of_ancestors (aid);
-CREATE INDEX IF NOT EXISTS embargo_member_of_ancestors_path_idx ON embargo_member_of_ancestors USING GIN (path array_ops);
+CREATE INDEX IF NOT EXISTS islandora_member_of_entailment_nid_idx ON islandora_member_of_entailment (nid);
+CREATE INDEX IF NOT EXISTS islandora_member_of_entailment_idx ON islandora_member_of_entailment (aid);
+CREATE INDEX IF NOT EXISTS islandora_member_of_entailment_path_idx ON islandora_member_of_entailment USING GIN (path array_ops);
 EOQ,
     options: [
       'allow_delimiter_in_query' => TRUE,
@@ -38,7 +38,7 @@ EOQ,
   // avoid multiple copies in the table, let's initially truncate.
   $connection->query(
     <<<EOQ
-TRUNCATE embargo_member_of_ancestors;
+TRUNCATE islandora_member_of_entailment;
 WITH RECURSIVE ancestors(nid, ancestor, path, is_cycle) AS (
   SELECT n.nid::bigint, NULL::bigint, ARRAY[n.nid::bigint]::bigint[], false::boolean
   FROM node n
@@ -50,7 +50,7 @@ UNION ALL
   WHERE fmou.field_member_of_target_id = a.nid
     AND NOT a.is_cycle
 )
-INSERT INTO embargo_member_of_ancestors SELECT nid, ancestor, path FROM ancestors
+INSERT INTO islandora_member_of_entailment SELECT nid, ancestor, path FROM ancestors
 EOQ,
     options: [
       'allow_delimiter_in_query' => TRUE,
@@ -68,10 +68,10 @@ EOQ,
 function _embargo_member_of_inheritance_drop_db(Connection $connection) : void {
   $connection->query(
     <<<EOQ
-DROP INDEX IF EXISTS embargo_member_of_ancestors_nid_idx;
-DROP INDEX IF EXISTS embargo_member_of_ancestors_aid_idx;
-DROP INDEX IF EXISTS embargo_member_of_ancestors_path_idx;
-DROP TABLE IF EXISTS embargo_member_of_ancestors;
+DROP INDEX IF EXISTS islandora_member_of_entailment_nid_idx;
+DROP INDEX IF EXISTS islandora_member_of_entailment_aid_idx;
+DROP INDEX IF EXISTS islandora_member_of_entailment_path_idx;
+DROP TABLE IF EXISTS islandora_member_of_entailment;
 EOQ,
     options: [
       'allow_delimiter_in_query' => TRUE,

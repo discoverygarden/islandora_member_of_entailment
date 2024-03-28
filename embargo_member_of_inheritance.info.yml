@@ -1,9 +1,0 @@
----
-name: Embargo field_member_of inheritance
-type: module
-description: >
-  Inherit embargoes down hierarchy trees into child nodes.
-package: Embargo
-core_version_requirement: ^10
-dependencies:
-  - embargo:embargo

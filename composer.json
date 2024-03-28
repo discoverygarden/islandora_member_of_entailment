@@ -1,0 +1,9 @@
+{
+    "name": "discoverygarden/islandora_member_of_entailment",
+    "description": "Maintain flattened representation of the hierarchy of nodes represented by Islandora's field_member_of relationship.",
+    "type": "drupal-module",
+    "license": "GPL-3.0-only",
+    "require": {
+        "islandora/islandora": "^2"
+    }
+}
