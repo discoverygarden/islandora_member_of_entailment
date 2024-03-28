@@ -6,6 +6,8 @@ use Drupal\Component\Annotation\Plugin;
 
 /**
  * Annotation for identifying our specific plugins.
+ *
+ * @Annotation
  */
 class DatabaseAdapter extends Plugin {
 

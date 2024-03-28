@@ -76,4 +76,11 @@ abstract class DatabaseAdapterPluginBase extends PluginBase implements DatabaseA
     return [$deleted_parents, $new_parents];
   }
 
+  /**
+   * {@inheritDoc}
+   */
+  public function getTableName(): string {
+    return 'islandora_member_of_entailment';
+  }
+
 }

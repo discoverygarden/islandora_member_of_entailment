@@ -24,14 +24,14 @@ class Pgsql extends DatabaseAdapterPluginBase {
     // expecting/requiring text, not apparently supporting the list of integers.
     $this->connection->query(
       <<<EOQ
-CREATE TABLE IF NOT EXISTS islandora_member_of_entailment (
+CREATE TABLE IF NOT EXISTS {{$this->getTableName()}} (
 nid bigint,
 aid bigint,
 path bigint[]
 );
-CREATE INDEX IF NOT EXISTS islandora_member_of_entailment_nid_idx ON islandora_member_of_entailment (nid);
-CREATE INDEX IF NOT EXISTS islandora_member_of_entailment_idx ON islandora_member_of_entailment (aid);
-CREATE INDEX IF NOT EXISTS islandora_member_of_entailment_path_idx ON islandora_member_of_entailment USING GIN (path array_ops);
+CREATE INDEX IF NOT EXISTS {{$this->getTableName()}_nid_idx} ON {{$this->getTableName()}} (nid);
+CREATE INDEX IF NOT EXISTS {{$this->getTableName()}_idx} ON {{$this->getTableName()}} (aid);
+CREATE INDEX IF NOT EXISTS {{$this->getTableName()}_path_idx} ON {{$this->getTableName()}} USING GIN (path array_ops);
 EOQ,
       options: [
         'allow_delimiter_in_query' => TRUE,
@@ -46,10 +46,10 @@ EOQ,
   public function uninstallSchema(): void {
     $this->connection->query(
       <<<EOQ
-DROP INDEX IF EXISTS islandora_member_of_entailment_nid_idx;
-DROP INDEX IF EXISTS islandora_member_of_entailment_aid_idx;
-DROP INDEX IF EXISTS islandora_member_of_entailment_path_idx;
-DROP TABLE IF EXISTS islandora_member_of_entailment;
+DROP INDEX IF EXISTS {{$this->getTableName()}_nid_idx};
+DROP INDEX IF EXISTS {{$this->getTableName()}_aid_idx};
+DROP INDEX IF EXISTS {{$this->getTableName()}_path_idx};
+DROP TABLE IF EXISTS {{$this->getTableName()}};
 EOQ,
       options: [
         'allow_delimiter_in_query' => TRUE,
@@ -63,7 +63,7 @@ EOQ,
   public function rebuild(): void {
     $this->connection->query(
       <<<EOQ
-TRUNCATE islandora_member_of_entailment;
+TRUNCATE {$this->getTableName()};
 WITH RECURSIVE ancestors(nid, ancestor, path, is_cycle) AS (
   SELECT n.nid::bigint, NULL::bigint, ARRAY[n.nid::bigint]::bigint[], false::boolean
   FROM node n
@@ -75,7 +75,7 @@ UNION ALL
   WHERE fmou.field_member_of_target_id = a.nid
     AND NOT a.is_cycle
 )
-INSERT INTO islandora_member_of_entailment SELECT nid, ancestor, path FROM ancestors
+INSERT INTO {{$this->getTableName()}} SELECT nid, ancestor, path FROM ancestors
 EOQ,
       options: [
         'allow_delimiter_in_query' => TRUE,
@@ -93,10 +93,10 @@ EOQ,
       $this->connection->query(<<<EOQ
 WITH derived(nid::bigint, ancestor::bigint, path::bigint[], is_cycle::bool) AS (
   SELECT :current, a.ancestor, a.path || :current,  :current = ANY(a.path)
-  FROM islandora_member_of_entailment
+  FROM {{$this->getTableName()}}
   WHERE a.ancestor IN (:parents[])
 )
-INSERT INTO islandora_member_of_entailment SELECT nid, ancestor, path FROM derived
+INSERT INTO {$this->getTableName()} SELECT nid, ancestor, path FROM derived
 EOQ,
         [
           ':current' => $node->id(),
@@ -132,7 +132,7 @@ EOQ,
       // At worst, we can removed everything and add it anew.
       if ($deleted_parents) {
         $this->connection->query(<<<EOQ
-DELETE FROM islandora_member_of_entailment
+DELETE FROM {{$this->getTableName()}}
 WHERE :current IN path AND aid IN (:parents[]);
 EOQ,
           [
@@ -146,15 +146,15 @@ EOQ,
           <<<EOQ
 WITH RECURSIVE tree(nid::bigint, ancestor::bigint, path::bigint[] , is_cycle::bool) AS (
     SELECT :current, a.aid, a.path || :current, false
-    FROM islandora_member_of_entailment a
+    FROM {{$this->getTableName()}} a
     WHERE a.aid in (:parents[]) AND NOT (:current = ANY(a.path))
-  UNION
+  UNION ALL
     SELECT fmo.entity_id, t.ancestor, t.path || fmo.entity_id, fmo.entity_id = ANY(t.path)
     FROM tree t
     INNER JOIN node__field_member_of fmo ON fmo.field_member_of_target_id = t.nid
     WHERE NOT is_cycle
 )
-INSERT INTO islandora_member_of_entailment SELECT nid, ancestor, path FROM tree;
+INSERT INTO {{$this->getTableName()}} SELECT nid, ancestor, path FROM tree;
 EOQ,
           [
             ':current' => $node->id(),
@@ -180,14 +180,17 @@ EOQ,
     try {
       $this->connection->query(
         <<<EOQ
-DELETE FROM islandora_member_of_entailment
+DELETE FROM {{$this->getTableName()}}
 WHERE nid = :current
 OR aid = :current
-OR :current IN path
+OR ARRAY[:current]::bigint[] && path
 EOQ,
         [
           ':current' => $node->id(),
         ],
+        [
+          'allow_square_brackets' => TRUE,
+        ]
       )->execute();
     }
     catch (\Exception $e) {

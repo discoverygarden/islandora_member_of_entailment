@@ -11,11 +11,28 @@ use Drupal\node\NodeInterface;
 interface DatabaseAdapterInterface extends PluginInspectionInterface {
 
   /**
+   * Get the name of the flattened hierarchy table.
+   *
+   * We expect at least two columns to exist in this table:
+   * - nid: Node related to ancestors.
+   * - aid: Ancestor nodes.
+   *
+   * Ideally, both columns should be indexed to faciliate making joins across
+   * the flattened relationship.
+   *
+   * @return string
+   *   The name of the table.
+   */
+  public function getTableName() : string;
+
+  /**
    * Create table(s) and indices as necessary.
    *
    * Some DB-specific functionality is somewhat less-than available via Drupal,
    * so allow for other types of things, meaning hook_schema() is not quite
    * usable.
+   *
+   * @see \Drupal\islandora_member_of_entailment\Plugin\DatabaseAdapterInterface::getTableName()
    */
   public function schema() : void;
 
@@ -56,4 +73,5 @@ interface DatabaseAdapterInterface extends PluginInspectionInterface {
    *   The node to be removed from tracking.
    */
   public function deleteNode(NodeInterface $node) : void;
+
 }
