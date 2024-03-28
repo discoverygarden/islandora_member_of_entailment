@@ -5,50 +5,7 @@
  * Misc (un)installation and update hooks.
  */
 
-/**
- * Implements hook_schema().
- */
-function embargo_member_of_inheritance_schema() {
-  $schema = [];
-
-  $schema['embargo_member_of_ancestors'] = [
-    'description' => '',
-    'fields' => [
-      'nid' => [
-        'description' => 'Node ID being described.',
-        'type' => 'int',
-        'unsigned' => TRUE,
-        'size' => 'big',
-        'not null' => TRUE,
-      ],
-      'aid' => [
-        'description' => 'Ancestor node ID.',
-        'type' => 'int',
-        'unsigned' => TRUE,
-        'size' => 'big',
-        // Top-level collections have no ancestor.
-        'not null' => FALSE,
-      ],
-      'ancestor_path' => [
-        'description' => 'Node IDs back to the target ancestor.',
-        'pgsql_type' => 'bigint[]',
-        'not null' => TRUE,
-      ],
-    ],
-    'foreign keys' => [
-      'target_node' => [
-        'table' => 'node',
-        'columns' => ['nid' => 'nid'],
-      ],
-      'ancestor_node' => [
-        'table' => 'node',
-        'columns' => ['aid' => 'nid'],
-      ],
-    ],
-  ];
-
-  return $schema;
-}
+use Drupal\Core\Database\Connection;
 
 /**
  * Implements hook_install().
@@ -56,26 +13,78 @@ function embargo_member_of_inheritance_schema() {
 function embargo_member_of_inheritance_install($is_syncing) {
   /** @var \Drupal\Core\Database\Connection $connection */
   $connection = \Drupal::service('database');
-  $transaction = $connection->startTransaction();
-  try {
-    $connection->query(
-      <<<EOQ
-WITH RECURSIVE ancestors(nid::bigint, ancestor::bigint, path::bigint[], is_cycle::bool) AS (
-    SELECT n.nid, NULL, ARRAY[n.nid], false
-    FROM node n
-    WHERE NOT EXISTS (SELECT 1 FROM node__field_member_of fmo WHERE n.nid = fmo.entity_id )
-  UNION
-    SELECT fmou.entity_id, a.nid, a.path || fmou.entity_id, fmou.entity_id = ANY(a.path)
-    FROM ancestors a
-    JOIN node__field_member_of fmou ON fmou.field_member_of_target_id = a.nid
-    WHERE NOT a.is_cycle
+
+  _embargo_member_of_inheritance_drop_db($connection);
+  // XXX: hook_schema() is unable to deal with array-valued columns.
+  // XXX: jsonb doesn't quite work instead of arrays, due to expecting/requiring
+  // text, not apparently supporting the list of integers.
+  $connection->query(
+    <<<EOQ
+CREATE TABLE IF NOT EXISTS embargo_member_of_ancestors (
+nid bigint,
+aid bigint,
+path bigint[]
+);
+CREATE INDEX IF NOT EXISTS embargo_member_of_ancestors_nid_idx ON embargo_member_of_ancestors (nid);
+CREATE INDEX IF NOT EXISTS embargo_member_of_ancestors_aid_idx ON embargo_member_of_ancestors (aid);
+CREATE INDEX IF NOT EXISTS embargo_member_of_ancestors_path_idx ON embargo_member_of_ancestors USING GIN (path array_ops);
+EOQ,
+    options: [
+      'allow_delimiter_in_query' => TRUE,
+      'allow_square_brackets' => TRUE,
+    ],
+  )->execute();
+  // XXX: Drupal seems to execute this twice on module installation, so to
+  // avoid multiple copies in the table, let's initially truncate.
+  $connection->query(
+    <<<EOQ
+TRUNCATE embargo_member_of_ancestors;
+WITH RECURSIVE ancestors(nid, ancestor, path, is_cycle) AS (
+  SELECT n.nid::bigint, NULL::bigint, ARRAY[n.nid::bigint]::bigint[], false::boolean
+  FROM node n
+  WHERE NOT EXISTS (SELECT 1 FROM node__field_member_of fmo WHERE n.nid = fmo.entity_id )
+    AND n.type = 'islandora_object'
+UNION ALL
+  SELECT fmou.entity_id, a.nid, a.path || fmou.entity_id, fmou.entity_id = ANY(a.path)
+  FROM ancestors a, node__field_member_of fmou
+  WHERE fmou.field_member_of_target_id = a.nid
+    AND NOT a.is_cycle
 )
 INSERT INTO embargo_member_of_ancestors SELECT nid, ancestor, path FROM ancestors
-EOQ
-    )->execute();
-  }
-  catch (\Exception $e) {
-    $transaction->rollBack();
-    throw $e;
-  }
+EOQ,
+    options: [
+      'allow_delimiter_in_query' => TRUE,
+      'allow_square_brackets' => TRUE,
+    ]
+  )->execute();
+}
+
+/**
+ * Helper; drop existing DB items.
+ *
+ * @param \Drupal\Core\Database\Connection $connection
+ *   The DB connection to use.
+ */
+function _embargo_member_of_inheritance_drop_db(Connection $connection) : void {
+  $connection->query(
+    <<<EOQ
+DROP INDEX IF EXISTS embargo_member_of_ancestors_nid_idx;
+DROP INDEX IF EXISTS embargo_member_of_ancestors_aid_idx;
+DROP INDEX IF EXISTS embargo_member_of_ancestors_path_idx;
+DROP TABLE IF EXISTS embargo_member_of_ancestors;
+EOQ,
+    options: [
+      'allow_delimiter_in_query' => TRUE,
+    ]
+  )->execute();
+}
+
+/**
+ * Implements hook_uninstall().
+ */
+function embargo_member_of_inheritance_uninstall($is_syncing) {
+  /** @var \Drupal\Core\Database\Connection $connection */
+  $connection = \Drupal::service('database');
+
+  _embargo_member_of_inheritance_drop_db($connection);
 }
