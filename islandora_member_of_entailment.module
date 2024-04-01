@@ -19,7 +19,8 @@ function islandora_member_of_entailment_node_insert(EntityInterface $entity) {
     // Irrelevant node.
     return;
   }
-  elseif ($entity->get(IslandoraUtils::MEMBER_OF_FIELD)->isEmpty()) {
+  $members = $entity->get(IslandoraUtils::MEMBER_OF_FIELD);
+  if ($members->isEmpty()) {
     // Relevant node, but no parents.
     return;
   }

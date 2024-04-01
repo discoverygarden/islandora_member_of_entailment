@@ -95,15 +95,16 @@ EOQ,
     try {
       $this->connection->query(<<<EOQ
 WITH derived(nid, ancestor, path, is_cycle) AS (
-  SELECT :current, a.ancestor, a.path || :current,  :current = ANY(a.path)
-  FROM {{$this->getTableName()}}
-  WHERE a.ancestor IN (:parents[])
+  SELECT fmo.entity_id, a.aid, ARRAY[fmo.field_member_of_target_id] || a.path, fmo.entity_id = ANY(a.path)
+  FROM {{$this->getTableName()}} a, {node__field_member_of} fmo
+  WHERE fmo.field_member_of_target_id = a.nid
+    AND fmo.entity_id = :current
+    AND NOT is_cycle
 )
 INSERT INTO {$this->getTableName()} SELECT nid, ancestor, path FROM derived
 EOQ,
         [
           ':current' => $node->id(),
-          ':parents[]' => $this->getParents($node),
         ],
         [
           'allow_square_brackets' => TRUE,
@@ -148,19 +149,45 @@ EOQ,
       }
 
       if ($new_parents) {
+        // A number of relationships to account for:
+        // - Those directly described (the new parent(s) for the given node).
+        // - We have all the same ancestors as our parents.
+        // - All of our children get the same ancestors as our parents.
         $this->connection->query(
           <<<EOQ
-WITH RECURSIVE tree(nid, ancestor, path , is_cycle) AS (
-    SELECT CAST( :current AS bigint ), a.aid, a.path || CAST( :current AS bigint ), false
+WITH tree_given(nid, ancestor, path) AS (
+    SELECT CAST( :current AS bigint ), n.nid, ARRAY[n.nid]
+    FROM {node} n
+    WHERE n.nid IN ( :parents[] )
+), tree_above(nid, ancestor, path , is_cycle) AS (
+    SELECT CAST( :current AS bigint ), a.aid, ARRAY[CAST( :current AS bigint )] || a.path, CAST( :current AS bigint ) = ANY(a.path)
     FROM {{$this->getTableName()}} a
-    WHERE a.aid in ( :parents[] ) AND NOT (:current = ANY(a.path))
+    WHERE a.nid in ( :parents[] )
+), tree_below(nid, ancestor, path, is_cycle) AS (
+    SELECT d.nid, CAST( :current AS bigint ), d.path || CAST( :current AS bigint ), CAST( :current AS bigint ) = ANY(d.path)
+    FROM {{$this->getTableName()}} d
+    WHERE d.aid = :current
+), tree_splice(nid, ancestor, path, is_cycle) AS (
+    SELECT b.nid, a.ancestor, b.path || a.path, a.path && b.path
+    FROM tree_below b, tree_above a
+    WHERE b.ancestor = a.nid
+), tree_union(nid, ancestor, path) AS (
+    SELECT g.nid, g.ancestor, g.path
+    FROM tree_given g
   UNION ALL
-    SELECT fmo.entity_id, t.ancestor, t.path || fmo.entity_id, fmo.entity_id = ANY(t.path)
-    FROM tree t
-    INNER JOIN {node__field_member_of} fmo ON fmo.field_member_of_target_id = t.nid
-    WHERE NOT is_cycle
+    SELECT a.nid, a.ancestor, a.path
+    FROM tree_above a
+    WHERE NOT a.is_cycle
+  UNION ALL
+    SELECT b.nid, b.ancestor, b.path
+    FROM tree_below b
+    WHERE NOT b.is_cycle
+  UNION ALL
+    SELECT s.nid, s.ancestor, s.path
+    FROM tree_splice s
+    WHERE NOT s.is_cycle
 )
-INSERT INTO {{$this->getTableName()}} SELECT nid, ancestor, path FROM tree;
+INSERT INTO {{$this->getTableName()}} SELECT nid, ancestor, path FROM tree_union
 EOQ,
           [
             ':current' => $node->id(),

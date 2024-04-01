@@ -97,8 +97,8 @@ class TableTest extends AbstractIslandoraKernelTestBase {
    */
   public function commonData() {
     return [
-      //'Maintaining table' => [FALSE],
-      'Regenerating table' => [TRUE],
+      'Maintaining table' => [FALSE],
+      //'Regenerating table' => [TRUE],
     ];
   }
 
