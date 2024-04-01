@@ -180,6 +180,7 @@ WITH tree_given(nid, ancestor, path) AS (
     SELECT b.nid, a.ancestor, b.path || a.path, a.path && b.path
     FROM tree_below b, tree_above a
     WHERE b.ancestor = a.nid
+      AND NOT b.is_cycle
 ), tree_union(nid, ancestor, path) AS (
     SELECT g.nid, g.ancestor, g.path
     FROM tree_given g
@@ -187,10 +188,6 @@ WITH tree_given(nid, ancestor, path) AS (
     SELECT a.nid, a.ancestor, a.path
     FROM tree_above a
     WHERE NOT a.is_cycle
-  UNION ALL
-    SELECT b.nid, b.ancestor, b.path
-    FROM tree_below b
-    WHERE NOT b.is_cycle
   UNION ALL
     SELECT s.nid, s.ancestor, s.path
     FROM tree_splice s
