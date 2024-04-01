@@ -3,6 +3,7 @@
 namespace Drupal\Tests\islandora_member_of_entailment\Kernel;
 
 use Drupal\Core\Database\Connection;
+use Drupal\Core\Field\FieldStorageDefinitionInterface;
 use Drupal\islandora\IslandoraUtils;
 use Drupal\islandora_member_of_entailment\Plugin\DatabaseAdapterInterface;
 use Drupal\islandora_member_of_entailment\Plugin\DatabaseAdapterManagerInterface;
@@ -39,17 +40,21 @@ class TableTest extends AbstractIslandoraKernelTestBase {
    */
   public function setUp(): void {
     parent::setUp();
-    $this->enableModuleWithDependencies(['islandora_member_of_entailment']);
+    $this->enableModuleWithDependencies([
+      'islandora_member_of_entailment',
+      'path_alias',
+    ]);
 
     $this->adapterManager = $this->container->get('plugin.manager.islandora_member_of_entailment.database_adapter');
     $this->adapter = $this->adapterManager->getDatabaseAdapterPlugin();
     $this->assertTrue($this->adapter->schema(), 'Schema installed successfully.');
+    $this->installEntitySchema('path_alias');
 
     $this->connection = $this->container->get('database');
 
     $this->createEntityReferenceField('node',
       $this->contentType->id(), IslandoraUtils::MEMBER_OF_FIELD,
-      "Member Of", $this->contentType->getEntityType()->getBundleOf());
+      "Member Of", $this->contentType->getEntityType()->getBundleOf(), cardinality: FieldStorageDefinitionInterface::CARDINALITY_UNLIMITED);
   }
 
   /**
@@ -77,6 +82,13 @@ class TableTest extends AbstractIslandoraKernelTestBase {
       ->execute();
     $results = $query->fetchAll(\PDO::FETCH_ASSOC);
 
+//    var_dump($this->connection->select($this->adapter->getTableName(), 't')
+//      ->fields('t')
+//      ->execute()->fetchAll(\PDO::FETCH_ASSOC));
+//    var_dump($this->connection->select('node__field_member_of', 't')
+//      ->fields('t')
+//      ->execute()->fetchAll(\PDO::FETCH_ASSOC));
+
     $this->assertEqualsCanonicalizing($expected, $results, $message);
   }
 
@@ -98,18 +110,6 @@ class TableTest extends AbstractIslandoraKernelTestBase {
   public function testBasicCreation(bool $regenerate) : void {
     $alpha = $this->createNode();
     $this->assertEquals(SAVED_UPDATED, $alpha->save());
-
-    if ($regenerate) {
-      $this->assertTrue($this->adapter->rebuild());
-    }
-
-    $this->assertTableContents(
-      [
-        ['nid' => $alpha->id(), 'aid' => NULL],
-      ],
-      'Has the expected item.',
-    );
-
     $bravo = $this->createNode();
     $bravo->get(IslandoraUtils::MEMBER_OF_FIELD)->appendItem($alpha);
     $this->assertEquals(SAVED_UPDATED, $bravo->save());
@@ -120,7 +120,6 @@ class TableTest extends AbstractIslandoraKernelTestBase {
 
     $this->assertTableContents(
       [
-        ['nid' => $alpha->id(), 'aid' => NULL],
         ['nid' => $bravo->id(), 'aid' => $alpha->id()],
       ],
       'Has the expected items.',
@@ -148,7 +147,6 @@ class TableTest extends AbstractIslandoraKernelTestBase {
 
     $this->assertTableContents(
       [
-        ['nid' => $alpha->id(), 'aid' => NULL],
         ['nid' => $bravo->id(), 'aid' => $alpha->id()],
         ['nid' => $charlie->id(), 'aid' => $alpha->id()],
         ['nid' => $charlie->id(), 'aid' => $bravo->id()],
@@ -179,7 +177,6 @@ class TableTest extends AbstractIslandoraKernelTestBase {
 
     $this->assertTableContents(
       [
-        ['nid' => $alpha->id(), 'aid' => NULL],
         ['nid' => $bravo->id(), 'aid' => $alpha->id()],
         ['nid' => $charlie->id(), 'aid' => $alpha->id()],
       ],
@@ -214,7 +211,6 @@ class TableTest extends AbstractIslandoraKernelTestBase {
 
     $this->assertTableContents(
       [
-        ['nid' => $alpha->id(), 'aid' => NULL],
         ['nid' => $bravo->id(), 'aid' => $alpha->id()],
         ['nid' => $charlie->id(), 'aid' => $alpha->id()],
         ['nid' => $delta->id(), 'aid' => $alpha->id()],
@@ -257,7 +253,6 @@ class TableTest extends AbstractIslandoraKernelTestBase {
 
     $this->assertTableContents(
       [
-        ['nid' => $alpha->id(), 'aid' => NULL],
         ['nid' => $bravo->id(), 'aid' => $alpha->id()],
         ['nid' => $charlie->id(), 'aid' => $alpha->id()],
         ['nid' => $delta->id(), 'aid' => $alpha->id()],
