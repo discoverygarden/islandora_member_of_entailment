@@ -94,14 +94,24 @@ EOQ,
     $transaction = $this->connection->startTransaction();
     try {
       $this->connection->query(<<<EOQ
-WITH derived(nid, ancestor, path, is_cycle) AS (
-  SELECT fmo.entity_id, a.aid, ARRAY[fmo.field_member_of_target_id] || a.path, fmo.entity_id = ANY(a.path)
+WITH current(nid, ancestor, path) AS (
+  SELECT fmo.entity_id, fmo.field_member_of_target_id, ARRAY[fmo.field_member_of_target_id]
+  FROM {node__field_member_of} fmo
+  WHERE fmo.entity_id = :current
+), tree_above(nid, ancestor, path) AS (
+  SELECT fmo.entity_id, a.aid, ARRAY[fmo.field_member_of_target_id] || a.path
   FROM {{$this->getTableName()}} a, {node__field_member_of} fmo
   WHERE fmo.field_member_of_target_id = a.nid
     AND fmo.entity_id = :current
-    AND NOT is_cycle
+    AND NOT fmo.entity_id = ANY(a.path)
+), derived(nid, ancestor, path) AS (
+    SELECT c.nid, c.ancestor, c.path
+    FROM current c
+  UNION ALL
+    SELECT a.nid, a.ancestor, a.path
+    FROM tree_above a
 )
-INSERT INTO {$this->getTableName()} SELECT nid, ancestor, path FROM derived
+INSERT INTO {{$this->getTableName()}} SELECT nid, ancestor, path FROM derived
 EOQ,
         [
           ':current' => $node->id(),
@@ -134,8 +144,7 @@ EOQ,
       // @todo Add entries for nodes that are newly related (attempt to make use
       // of present LUT to update?).
       // @todo Delete entries for nodes that are no longer related.
-      // At worst, we can removed everything and add it anew.
-
+      // At worst, we can remove everything and add it anew.
       if ($deleted_parents) {
         $this->connection->query(<<<EOQ
 DELETE FROM {{$this->getTableName()}}

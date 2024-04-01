@@ -3,6 +3,7 @@
 namespace Drupal\Tests\islandora_member_of_entailment\Kernel;
 
 use Drupal\Core\Database\Connection;
+use Drupal\Core\Entity\EntityInterface;
 use Drupal\Core\Field\FieldStorageDefinitionInterface;
 use Drupal\islandora\IslandoraUtils;
 use Drupal\islandora_member_of_entailment\Plugin\DatabaseAdapterInterface;
@@ -34,6 +35,8 @@ class TableTest extends AbstractIslandoraKernelTestBase {
    * @var \Drupal\Core\Database\Connection
    */
   protected Connection $connection;
+
+  protected bool $saveCreatedEntity;
 
   /**
    * {@inheritDoc}
@@ -95,24 +98,44 @@ class TableTest extends AbstractIslandoraKernelTestBase {
   /**
    * Data provider to test with full regeneration instead of LUT maintenance.
    */
-  public function commonData() {
+  public function buildType() {
     return [
-      'Maintaining table' => [FALSE],
-      //'Regenerating table' => [TRUE],
+      'Maintaining table, Presaved' => [FALSE, TRUE],
+      'Regenerating table, Presaved' => [TRUE, TRUE],
+      'Maintaining table, Created' => [FALSE, FALSE],
+      'Regenerating table, Created' => [TRUE, FALSE],
     ];
+  }
+
+  /**
+   * Data provider to test different entity saving flows.
+   */
+  public function saveType() {
+    return [
+      'Presaved' => [TRUE],
+      'Created' => [FALSE],
+    ];
+  }
+
+  /**
+   * Helper, setup saving.
+   */
+  protected function savingSetup(bool $saving) {
+    $this->saveCreatedEntity = $saving;
   }
 
   /**
    * Test basic node creation.
    *
-   * @dataProvider commonData
+   * @dataProvider buildType
    */
-  public function testBasicCreation(bool $regenerate) : void {
+  public function testBasicCreation(bool $regenerate, bool $saving) : void {
+    $this->savingSetup($saving);
     $alpha = $this->createNode();
-    $this->assertEquals(SAVED_UPDATED, $alpha->save());
+    $this->assertEquals($saving ? SAVED_UPDATED : SAVED_NEW, $alpha->save());
     $bravo = $this->createNode();
     $bravo->get(IslandoraUtils::MEMBER_OF_FIELD)->appendItem($alpha);
-    $this->assertEquals(SAVED_UPDATED, $bravo->save());
+    $this->assertEquals($saving ? SAVED_UPDATED : SAVED_NEW, $bravo->save());
 
     if ($regenerate) {
       $this->assertTrue($this->adapter->rebuild());
@@ -129,9 +152,10 @@ class TableTest extends AbstractIslandoraKernelTestBase {
   /**
    * Test basic transitive node creation.
    *
-   * @dataProvider commonData
+   * @dataProvider buildType
    */
-  public function testBasicTransitiveCreation(bool $regenerate) : void {
+  public function testBasicTransitiveCreation(bool $regenerate, bool $saving) : void {
+    $this->savingSetup($saving);
     $alpha = $this->createNode();
     $alpha->save();
     $bravo = $this->createNode();
@@ -159,9 +183,10 @@ class TableTest extends AbstractIslandoraKernelTestBase {
   /**
    * Test basic multiple node creation.
    *
-   * @dataProvider commonData
+   * @dataProvider buildType
    */
-  public function testBasicMultipleCreation(bool $regenerate) : void {
+  public function testBasicMultipleCreation(bool $regenerate, bool $saving) : void {
+    $this->savingSetup($saving);
     $alpha = $this->createNode();
     $alpha->save();
     $bravo = $this->createNode();
@@ -188,9 +213,10 @@ class TableTest extends AbstractIslandoraKernelTestBase {
   /**
    * Test basic multiple node creation.
    *
-   * @dataProvider commonData
+   * @dataProvider buildType
    */
-  public function testDiamondCreation(bool $regenerate) : void {
+  public function testDiamondCreation(bool $regenerate, bool $saving) : void {
+    $this->savingSetup($saving);
     $alpha = $this->createNode();
     $alpha->save();
     $bravo = $this->createNode();
@@ -227,9 +253,10 @@ class TableTest extends AbstractIslandoraKernelTestBase {
   /**
    * Test basic multiple node creation.
    *
-   * @dataProvider commonData
+   * @dataProvider buildType
    */
-  public function testTransitionViaDiamondCreation(bool $regenerate) : void {
+  public function testTransitionViaDiamondCreation(bool $regenerate, bool $saving) : void {
+    $this->savingSetup($saving);
     $alpha = $this->createNode();
     $alpha->save();
     $bravo = $this->createNode();
@@ -270,6 +297,23 @@ class TableTest extends AbstractIslandoraKernelTestBase {
       'Has the expected contents.',
     );
 
+  }
+
+  /**
+   * {@inheritDoc}
+   */
+  protected function createEntity(string $entityTypeId, array $values = []): EntityInterface {
+    // XXX: Essentially copypasta from
+    // Drupal\Tests\test_support\Traits\Support\InteractsWithEntities::createEntity();
+    // however, avoids performing the ::save() of the entity, to allow it to
+    // happen in the test.
+    $entity = $this->storage($entityTypeId)->create($values);
+
+    if ($this->saveCreatedEntity) {
+      $entity->save();
+    }
+
+    return $entity;
   }
 
 }
