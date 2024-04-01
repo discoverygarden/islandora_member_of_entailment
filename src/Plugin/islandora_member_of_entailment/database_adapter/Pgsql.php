@@ -161,7 +161,7 @@ EOQ,
         // A number of relationships to account for:
         // - Those directly described (the new parent(s) for the given node).
         // - We have all the same ancestors as our parents.
-        // - All of our children get the same ancestors as our parents.
+        // - All of our children get the same ancestors as our new parents.
         $this->connection->query(
           <<<EOQ
 WITH tree_given(nid, ancestor, path) AS (

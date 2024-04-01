@@ -36,6 +36,11 @@ class TableTest extends AbstractIslandoraKernelTestBase {
    */
   protected Connection $connection;
 
+  /**
+   * Flag, control whether ::createEntity() presaves the created entity.
+   *
+   * @var bool
+   */
   protected bool $saveCreatedEntity;
 
   /**
@@ -45,13 +50,11 @@ class TableTest extends AbstractIslandoraKernelTestBase {
     parent::setUp();
     $this->enableModuleWithDependencies([
       'islandora_member_of_entailment',
-      'path_alias',
     ]);
 
     $this->adapterManager = $this->container->get('plugin.manager.islandora_member_of_entailment.database_adapter');
     $this->adapter = $this->adapterManager->getDatabaseAdapterPlugin();
     $this->assertTrue($this->adapter->schema(), 'Schema installed successfully.');
-    $this->installEntitySchema('path_alias');
 
     $this->connection = $this->container->get('database');
 
@@ -84,13 +87,6 @@ class TableTest extends AbstractIslandoraKernelTestBase {
       ->fields('t', ['nid', 'aid'])
       ->execute();
     $results = $query->fetchAll(\PDO::FETCH_ASSOC);
-
-//    var_dump($this->connection->select($this->adapter->getTableName(), 't')
-//      ->fields('t')
-//      ->execute()->fetchAll(\PDO::FETCH_ASSOC));
-//    var_dump($this->connection->select('node__field_member_of', 't')
-//      ->fields('t')
-//      ->execute()->fetchAll(\PDO::FETCH_ASSOC));
 
     $this->assertEqualsCanonicalizing($expected, $results, $message);
   }
