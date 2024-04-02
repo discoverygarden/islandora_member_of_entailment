@@ -9,7 +9,7 @@ use Drupal\islandora\IslandoraUtils;
  *
  * @group islandora_member_of_entailment
  */
-class TableUpdateTest extends AbstractBase {
+class TableUpdateTest extends AbstractKernelTestBase {
 
   use DiamondBuilderTrait;
 

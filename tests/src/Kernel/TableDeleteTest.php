@@ -7,7 +7,7 @@ namespace Drupal\Tests\islandora_member_of_entailment\Kernel;
  *
  * @group islandora_member_of_entailment
  */
-class TableDeleteTest extends AbstractBase {
+class TableDeleteTest extends AbstractKernelTestBase {
 
   use DiamondBuilderTrait;
 

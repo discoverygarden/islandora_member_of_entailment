@@ -13,7 +13,7 @@ use Drupal\Tests\islandora_test_support\Kernel\AbstractIslandoraKernelTestBase;
 /**
  * Common testing basis.
  */
-abstract class AbstractBase extends AbstractIslandoraKernelTestBase {
+abstract class AbstractKernelTestBase extends AbstractIslandoraKernelTestBase {
 
   /**
    * The database adapter manager service.
@@ -56,7 +56,8 @@ abstract class AbstractBase extends AbstractIslandoraKernelTestBase {
 
     $this->createEntityReferenceField('node',
       $this->contentType->id(), IslandoraUtils::MEMBER_OF_FIELD,
-      "Member Of", $this->contentType->getEntityType()->getBundleOf(), cardinality: FieldStorageDefinitionInterface::CARDINALITY_UNLIMITED);
+      "Member Of", $this->contentType->getEntityType()->getBundleOf(),
+      cardinality: FieldStorageDefinitionInterface::CARDINALITY_UNLIMITED);
 
     $this->enableModuleWithDependencies([
       'islandora_member_of_entailment',
@@ -66,7 +67,6 @@ abstract class AbstractBase extends AbstractIslandoraKernelTestBase {
     $this->assertTrue($this->adapter->schema(), 'Schema installed successfully.');
 
     $this->connection = $this->container->get('database');
-
   }
 
   /**
@@ -93,12 +93,6 @@ abstract class AbstractBase extends AbstractIslandoraKernelTestBase {
       ->fields('t', ['nid', 'aid'])
       ->execute();
     $results = $query->fetchAll(\PDO::FETCH_ASSOC);
-
-//    var_dump('-----');
-//    var_dump($expected);
-//    var_dump($this->connection->select($this->adapter->getTableName(), 't')
-//      ->fields('t')
-//      ->execute()->fetchAll(\PDO::FETCH_ASSOC));
 
     $this->assertEqualsCanonicalizing($expected, $results, $message);
   }

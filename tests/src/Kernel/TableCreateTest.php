@@ -9,7 +9,7 @@ use Drupal\islandora\IslandoraUtils;
  *
  * @group islandora_member_of_entailment
  */
-class TableCreateTest extends AbstractBase {
+class TableCreateTest extends AbstractKernelTestBase {
 
   /**
    * Test basic node creation.
