@@ -64,27 +64,39 @@ EOQ,
    * {@inheritDoc}
    */
   public function rebuild(): bool {
-    $this->connection->truncate($this->getTableName())->execute();
-    $this->connection
-      ->query(
-        <<<EOQ
+    $transaction = $this->connection->startTransaction();
+    try {
+      $this->connection->truncate($this->getTableName())->execute();
+      // XXX: Referential integrity from Drupal for entity references would be
+      // nice, but alas... let's check all the existence ourselves (for now).
+      $this->connection
+        ->query(
+          <<<EOQ
 WITH RECURSIVE ancestors(nid, ancestor, path, is_cycle) AS (
     SELECT fmo.entity_id::bigint, fmo.field_member_of_target_id::bigint, ARRAY[fmo.field_member_of_target_id::bigint]::bigint[], (fmo.entity_id = fmo.field_member_of_target_id)::boolean
     FROM {node__field_member_of} fmo
+    WHERE EXISTS (SELECT 1 FROM {node} n WHERE n.nid = fmo.entity_id)
+      AND EXISTS (SELECT 1 FROM {node} n WHERE n.nid = fmo.field_member_of_target_id)
   UNION ALL
     SELECT l.nid, fmou.field_member_of_target_id, l.path || fmou.field_member_of_target_id, fmou.field_member_of_target_id = ANY(l.path)
     FROM ancestors l, {node__field_member_of} fmou
     WHERE l.ancestor = fmou.entity_id
       AND NOT l.is_cycle
+      AND EXISTS (SELECT 1 FROM {node} n WHERE n.nid = fmou.entity_id)
+      AND EXISTS (SELECT 1 FROM {node} n WHERE n.nid = fmou.field_member_of_target_id)
 )
 INSERT INTO {{$this->getTableName()}} SELECT nid, ancestor, path FROM ancestors
 EOQ,
-        options: [
-          'allow_square_brackets' => TRUE,
-        ],
-      );
-
-    return TRUE;
+          options: [
+            'allow_square_brackets' => TRUE,
+          ],
+        );
+      return TRUE;
+    }
+    catch (\Exception $e) {
+      $transaction->rollBack();
+      throw $e;
+    }
   }
 
   /**
@@ -148,11 +160,14 @@ EOQ,
       if ($deleted_parents) {
         $this->connection->query(<<<EOQ
 DELETE FROM {{$this->getTableName()}}
-WHERE :current = ANY(path) AND aid IN (:parents[]);
+WHERE :current = ANY(path) AND ARRAY[:parents[]] && path;
 EOQ,
           [
             ':current' => $node->id(),
             ':parents[]' => $deleted_parents,
+          ],
+          [
+            'allow_square_brackets' => TRUE,
           ],
         );
       }
@@ -169,7 +184,7 @@ WITH tree_given(nid, ancestor, path) AS (
     FROM {node} n
     WHERE n.nid IN ( :parents[] )
 ), tree_above(nid, ancestor, path , is_cycle) AS (
-    SELECT CAST( :current AS bigint ), a.aid, ARRAY[CAST( :current AS bigint )] || a.path, CAST( :current AS bigint ) = ANY(a.path)
+    SELECT CAST( :current AS bigint ), a.aid, ARRAY[a.nid] || a.path, CAST( :current AS bigint ) = ANY(a.path)
     FROM {{$this->getTableName()}} a
     WHERE a.nid in ( :parents[] )
 ), tree_below(nid, ancestor, path, is_cycle) AS (
@@ -199,7 +214,7 @@ EOQ,
             ':current' => $node->id(),
             ':parents[]' => $new_parents,
           ],
-          options: [
+          [
             'allow_square_brackets' => TRUE,
           ],
         );
