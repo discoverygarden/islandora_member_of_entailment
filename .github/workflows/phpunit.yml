@@ -15,5 +15,5 @@ jobs:
         {
           "discoverygarden/islandora_test_support": {
             "AUCIR-198: Node bundle use": "https://patch-diff.githubusercontent.com/raw/discoverygarden/islandora_test_support/pull/6.patch"
-          },
+          }
         }
