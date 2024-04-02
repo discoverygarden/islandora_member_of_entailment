@@ -49,4 +49,40 @@ class TableUpdateTest extends AbstractBase {
     $this->assertTableContents($new_map, 'New root accounted for.');
   }
 
+  /**
+   * Test moving item to a disjoint parent.
+   *
+   * @dataProvider buildType
+   */
+  public function testUpdateParent(bool $regenerate, bool $saving) {
+    $diamond = $this->buildDiamond($regenerate, $saving);
+    [$alpha, $bravo, $charlie, $delta, $echo] = $diamond;
+
+    $new_root = $this->createNode();
+    $new_root->save();
+
+    $bravo->set(IslandoraUtils::MEMBER_OF_FIELD, ['target_id' => $new_root->id()]);
+    $bravo->save();
+
+    $map = [
+      ['nid' => $bravo->id(), 'aid' => $new_root->id()],
+      ['nid' => $charlie->id(), 'aid' => $alpha->id()],
+      ['nid' => $delta->id(), 'aid' => $alpha->id()],
+      ['nid' => $delta->id(), 'aid' => $new_root->id()],
+      ['nid' => $delta->id(), 'aid' => $bravo->id()],
+      ['nid' => $delta->id(), 'aid' => $charlie->id()],
+      ['nid' => $echo->id(), 'aid' => $alpha->id()],
+      ['nid' => $echo->id(), 'aid' => $new_root->id()],
+      ['nid' => $echo->id(), 'aid' => $bravo->id()],
+      ['nid' => $echo->id(), 'aid' => $charlie->id()],
+      ['nid' => $echo->id(), 'aid' => $delta->id()],
+    ];
+
+    if ($regenerate) {
+      $this->assertTrue($this->adapter->rebuild());
+    }
+
+    $this->assertTableContents($map, 'New root accounted for.');
+  }
+
 }

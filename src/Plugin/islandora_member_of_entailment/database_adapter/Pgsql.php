@@ -165,7 +165,7 @@ EOQ,
       if ($deleted_parents) {
         $this->connection->query(<<<EOQ
 DELETE FROM {{$this->getTableName()}}
-WHERE :current = ANY(path) AND ARRAY[:parents[]] && path;
+WHERE (nid = :current OR :current = ANY(path)) AND ARRAY[:parents[]]::bigint[] && path;
 EOQ,
           [
             ':current' => $node->id(),
