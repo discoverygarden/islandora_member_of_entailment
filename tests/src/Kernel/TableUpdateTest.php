@@ -85,4 +85,31 @@ class TableUpdateTest extends AbstractBase {
     $this->assertTableContents($map, 'New root accounted for.');
   }
 
+  /**
+   * Test moving item to a disjoint parent.
+   *
+   * @dataProvider buildType
+   */
+  public function testUpdateMoveDiamond(bool $regenerate, bool $saving) {
+    $diamond = $this->buildDiamond($regenerate, $saving);
+    [, $bravo, $charlie, $delta, $echo] = $diamond;
+
+    $bravo->set(IslandoraUtils::MEMBER_OF_FIELD, ['target_id' => $charlie->id()]);
+    $bravo->save();
+
+    $map = $this->getDiamondMap($diamond);
+
+    // Just the new routes to charlie. Consistent ancestor (alpha) doesn't get
+    // more dupes (than it already had).
+    $map[] = ['nid' => $bravo->id(), 'aid' => $charlie->id()];
+    $map[] = ['nid' => $delta->id(), 'aid' => $charlie->id()];
+    $map[] = ['nid' => $echo->id(), 'aid' => $charlie->id()];
+
+    if ($regenerate) {
+      $this->assertTrue($this->adapter->rebuild());
+    }
+
+    $this->assertTableContents($map, 'New root accounted for.');
+  }
+
 }
