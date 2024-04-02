@@ -6,6 +6,8 @@ use Drupal\islandora\IslandoraUtils;
 
 /**
  * Test LUT maintance/building with updates.
+ *
+ * @group islandora_member_of_entailment
  */
 class TableUpdateTest extends AbstractBase {
 

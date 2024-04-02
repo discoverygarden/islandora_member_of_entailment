@@ -4,6 +4,8 @@ namespace Drupal\Tests\islandora_member_of_entailment\Kernel;
 
 /**
  * Test LUT maintenance/building with deletion.
+ *
+ * @group islandora_member_of_entailment
  */
 class TableDeleteTest extends AbstractBase {
 

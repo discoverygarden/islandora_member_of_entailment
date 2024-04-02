@@ -6,6 +6,8 @@ use Drupal\islandora\IslandoraUtils;
 
 /**
  * Test generation and maintenance of table.
+ *
+ * @group islandora_member_of_entailment
  */
 class TableCreateTest extends AbstractBase {
 
