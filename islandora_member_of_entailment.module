@@ -1,13 +1,13 @@
 <?php
 
-use Drupal\Core\Entity\EntityInterface;
-use Drupal\islandora\IslandoraUtils;
-use Drupal\node\NodeInterface;
-
 /**
  * @file
  * General hook implementations.
  */
+
+use Drupal\Core\Entity\EntityInterface;
+use Drupal\islandora\IslandoraUtils;
+use Drupal\node\NodeInterface;
 
 /**
  * Implements hook_ENTITY_TYPE_insert() for node entities.
