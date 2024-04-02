@@ -85,7 +85,12 @@ WITH RECURSIVE ancestors(nid, ancestor, path, is_cycle) AS (
       AND EXISTS (SELECT 1 FROM {node} n WHERE n.nid = fmou.entity_id)
       AND EXISTS (SELECT 1 FROM {node} n WHERE n.nid = fmou.field_member_of_target_id)
 )
-INSERT INTO {{$this->getTableName()}} SELECT nid, ancestor, path FROM ancestors
+INSERT INTO {{$this->getTableName()}}
+SELECT nid, ancestor, path
+FROM ancestors
+WHERE EXISTS (SELECT 1 FROM {node} n WHERE n.nid = nid)
+  AND EXISTS (SELECT 1 FROM {node} n WHERE n.nid = ancestor)
+  AND array_length(path, 1) = (SELECT count(*) FROM {node} n WHERE n.nid = ANY(path))
 EOQ,
           options: [
             'allow_square_brackets' => TRUE,
