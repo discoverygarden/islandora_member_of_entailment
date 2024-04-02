@@ -192,19 +192,18 @@ WITH tree_given(nid, ancestor, path) AS (
     SELECT CAST( :current AS bigint ), a.aid, ARRAY[a.nid] || a.path, CAST( :current AS bigint ) = ANY(a.path)
     FROM {{$this->getTableName()}} a
     WHERE a.nid in ( :parents[] )
+  UNION ALL
+    SELECT g.nid, g.ancestor, g.path, false
+    FROM tree_given g
 ), tree_below(nid, ancestor, path, is_cycle) AS (
-    SELECT d.nid, CAST( :current AS bigint ), d.path || CAST( :current AS bigint ), CAST( :current AS bigint ) = ANY(d.path)
+    SELECT d.nid, d.aid, d.path, false
     FROM {{$this->getTableName()}} d
     WHERE d.aid = :current
 ), tree_splice(nid, ancestor, path, is_cycle) AS (
     SELECT b.nid, a.ancestor, b.path || a.path, a.path && b.path
     FROM tree_below b, tree_above a
     WHERE b.ancestor = a.nid
-      AND NOT b.is_cycle
 ), tree_union(nid, ancestor, path) AS (
-    SELECT g.nid, g.ancestor, g.path
-    FROM tree_given g
-  UNION ALL
     SELECT a.nid, a.ancestor, a.path
     FROM tree_above a
     WHERE NOT a.is_cycle
