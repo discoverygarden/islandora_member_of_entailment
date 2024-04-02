@@ -8,6 +8,7 @@ use Drupal\islandora\IslandoraUtils;
  * Test LUT maintance/building with updates.
  */
 class TableUpdateTest extends AbstractBase {
+
   use DiamondBuilderTrait;
 
   /**
@@ -44,8 +45,6 @@ class TableUpdateTest extends AbstractBase {
     if ($regenerate) {
       $this->assertTrue($this->adapter->rebuild());
     }
-
-    shuffle($new_map);
 
     $this->assertTableContents($new_map, 'New root accounted for.');
   }
