@@ -48,21 +48,25 @@ abstract class AbstractBase extends AbstractIslandoraKernelTestBase {
    */
   public function setUp(): void {
     parent::setUp();
+
     $this->enableModuleWithDependencies([
-      'islandora_member_of_entailment',
       'path_alias',
     ]);
-
-    $this->adapterManager = $this->container->get('plugin.manager.islandora_member_of_entailment.database_adapter');
-    $this->adapter = $this->adapterManager->getDatabaseAdapterPlugin();
-    $this->assertTrue($this->adapter->schema(), 'Schema installed successfully.');
     $this->installEntitySchema('path_alias');
-
-    $this->connection = $this->container->get('database');
 
     $this->createEntityReferenceField('node',
       $this->contentType->id(), IslandoraUtils::MEMBER_OF_FIELD,
       "Member Of", $this->contentType->getEntityType()->getBundleOf(), cardinality: FieldStorageDefinitionInterface::CARDINALITY_UNLIMITED);
+
+    $this->enableModuleWithDependencies([
+      'islandora_member_of_entailment',
+    ]);
+    $this->adapterManager = $this->container->get('plugin.manager.islandora_member_of_entailment.database_adapter');
+    $this->adapter = $this->adapterManager->getDatabaseAdapterPlugin();
+    $this->assertTrue($this->adapter->schema(), 'Schema installed successfully.');
+
+    $this->connection = $this->container->get('database');
+
   }
 
   /**
