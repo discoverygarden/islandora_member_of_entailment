@@ -12,7 +12,7 @@ use Drupal\node\NodeInterface;
 /**
  * Implements hook_ENTITY_TYPE_insert() for node entities.
  */
-function islandora_member_of_entailment_node_insert(EntityInterface $entity) {
+function islandora_member_of_entailment_node_insert(EntityInterface $entity) : void {
   assert($entity instanceof NodeInterface);
 
   if (!$entity->hasField(IslandoraUtils::MEMBER_OF_FIELD)) {
@@ -36,7 +36,7 @@ function islandora_member_of_entailment_node_insert(EntityInterface $entity) {
 /**
  * Implements hook_ENTITY_TYPE_update() for node entities.
  */
-function islandora_member_of_entailment_node_update(EntityInterface $entity) {
+function islandora_member_of_entailment_node_update(EntityInterface $entity) : void {
   assert($entity instanceof NodeInterface);
 
   if (!$entity->hasField(IslandoraUtils::MEMBER_OF_FIELD)) {
@@ -54,7 +54,7 @@ function islandora_member_of_entailment_node_update(EntityInterface $entity) {
 /**
  * Implements hook_ENTITY_TYPE_delete() for node entities.
  */
-function islandora_member_of_entailment_node_delete(EntityInterface $entity) {
+function islandora_member_of_entailment_node_delete(EntityInterface $entity) : void {
   assert($entity instanceof NodeInterface);
 
   if (!$entity->hasField(IslandoraUtils::MEMBER_OF_FIELD)) {
