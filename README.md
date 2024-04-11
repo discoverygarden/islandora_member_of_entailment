@@ -5,7 +5,7 @@
 Maintain flattened representation of the hierarchy of nodes represented by
 Islandora's `field_member_of` relationship.
 
-# Requirements
+## Requirements
 
 Presently, only PostgreSQL is supported.
 
@@ -13,6 +13,12 @@ This module requires the following modules/libraries:
 
 - [Islandora](https://github.com/Islandora/islandora)
 - Drupal's core `node` module
+
+### Installation
+
+Install as usual, see
+[this]( https://www.drupal.org/docs/extending-drupal/installing-modules) for
+further information.
 
 ## Views integration
 
@@ -29,11 +35,7 @@ Similarly, it is possible to flip around the direction of the relationships to
 target descendents.
 
 
-## Installation
 
-Install as usual, see
-[this]( https://www.drupal.org/docs/extending-drupal/installing-modules) for
-further information.
 
 ## Troubleshooting/Issues
 
