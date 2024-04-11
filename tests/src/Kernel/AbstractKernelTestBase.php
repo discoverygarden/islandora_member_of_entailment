@@ -15,19 +15,7 @@ use Drupal\Tests\islandora_test_support\Kernel\AbstractIslandoraKernelTestBase;
  */
 abstract class AbstractKernelTestBase extends AbstractIslandoraKernelTestBase {
 
-  /**
-   * The database adapter manager service.
-   *
-   * @var \Drupal\islandora_member_of_entailment\Plugin\DatabaseAdapterManagerInterface
-   */
-  protected DatabaseAdapterManagerInterface $adapterManager;
-
-  /**
-   * The presently applicable adapter implementation.
-   *
-   * @var \Drupal\islandora_member_of_entailment\Plugin\DatabaseAdapterInterface
-   */
-  protected DatabaseAdapterInterface $adapter;
+  use SetupTrait;
 
   /**
    * The database connection service.
@@ -49,22 +37,7 @@ abstract class AbstractKernelTestBase extends AbstractIslandoraKernelTestBase {
   public function setUp(): void {
     parent::setUp();
 
-    $this->enableModuleWithDependencies([
-      'path_alias',
-    ]);
-    $this->installEntitySchema('path_alias');
-
-    $this->createEntityReferenceField('node',
-      $this->contentType->id(), IslandoraUtils::MEMBER_OF_FIELD,
-      "Member Of", $this->contentType->getEntityType()->getBundleOf(),
-      cardinality: FieldStorageDefinitionInterface::CARDINALITY_UNLIMITED);
-
-    $this->enableModuleWithDependencies([
-      'islandora_member_of_entailment',
-    ]);
-    $this->adapterManager = $this->container->get('plugin.manager.islandora_member_of_entailment.database_adapter');
-    $this->adapter = $this->adapterManager->getDatabaseAdapterPlugin();
-    $this->assertTrue($this->adapter->schema(), 'Schema installed successfully.');
+    $this->doIslandoraMemberOfEntailmentSetup();
 
     $this->connection = $this->container->get('database');
   }
