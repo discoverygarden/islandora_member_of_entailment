@@ -2,6 +2,8 @@
 
 namespace Drupal\Tests\islandora_member_of_entailment\Kernel;
 
+use Drupal\Tests\islandora_member_of_entailment\Traits\DiamondBuilderTrait;
+
 /**
  * Test LUT maintenance/building with deletion.
  *

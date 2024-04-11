@@ -1,6 +1,6 @@
 <?php
 
-namespace Drupal\Tests\islandora_member_of_entailment\Kernel;
+namespace Drupal\Tests\islandora_member_of_entailment\Traits;
 
 use Drupal\islandora\IslandoraUtils;
 
