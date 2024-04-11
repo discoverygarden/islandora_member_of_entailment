@@ -4,10 +4,6 @@ namespace Drupal\Tests\islandora_member_of_entailment\Kernel;
 
 use Drupal\Core\Database\Connection;
 use Drupal\Core\Entity\EntityInterface;
-use Drupal\Core\Field\FieldStorageDefinitionInterface;
-use Drupal\islandora\IslandoraUtils;
-use Drupal\islandora_member_of_entailment\Plugin\DatabaseAdapterInterface;
-use Drupal\islandora_member_of_entailment\Plugin\DatabaseAdapterManagerInterface;
 use Drupal\Tests\islandora_test_support\Kernel\AbstractIslandoraKernelTestBase;
 
 /**
