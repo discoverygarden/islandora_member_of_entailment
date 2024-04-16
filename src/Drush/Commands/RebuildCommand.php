@@ -44,7 +44,7 @@ class RebuildCommand extends DrushCommands implements ContainerInjectionInterfac
       $this->io()->info($this->t('Done!'));
     }
     else {
-      $this->io->error($this->t('Error?'));
+      $this->io()->error($this->t('Error?'));
     }
   }
 
