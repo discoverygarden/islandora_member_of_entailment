@@ -21,7 +21,7 @@ function islandora_member_of_entailment_install($is_syncing) {
 /**
  * Implements hook_uninstall().
  */
-function embargo_member_of_inheritance_uninstall($is_syncing) {
+function islandora_member_of_entailment_uninstall($is_syncing) {
   /** @var \Drupal\islandora_member_of_entailment\Plugin\DatabaseAdapterManagerInterface $manager */
   $manager = \Drupal::service('plugin.manager.islandora_member_of_entailment.database_adapter');
 
