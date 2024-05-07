@@ -61,10 +61,6 @@ function islandora_member_of_entailment_node_delete(EntityInterface $entity) : v
     // Irrelevant node.
     return;
   }
-  elseif ($entity->get(IslandoraUtils::MEMBER_OF_FIELD)->isEmpty()) {
-    // Relevant node, but no parents.
-    return;
-  }
 
   /** @var \Drupal\islandora_member_of_entailment\Plugin\DatabaseAdapterManagerInterface $manager */
   $manager = \Drupal::service('plugin.manager.islandora_member_of_entailment.database_adapter');
