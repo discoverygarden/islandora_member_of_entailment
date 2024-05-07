@@ -1,0 +1,36 @@
+<?php
+
+/**
+ * @file
+ * Misc (un)installation and update hooks.
+ */
+
+/**
+ * Implements hook_install().
+ */
+function islandora_member_of_entailment_install($is_syncing) {
+  /** @var \Drupal\islandora_member_of_entailment\Plugin\DatabaseAdapterManagerInterface $manager */
+  $manager = \Drupal::service('plugin.manager.islandora_member_of_entailment.database_adapter');
+
+  $plugin = $manager->getDatabaseAdapterPlugin();
+
+  $plugin->schema();
+  if (!$is_syncing) {
+    $plugin->rebuild();
+  }
+  else {
+    drupal_register_shutdown_function([$plugin, 'rebuild']);
+  }
+}
+
+/**
+ * Implements hook_uninstall().
+ */
+function islandora_member_of_entailment_uninstall($is_syncing) {
+  /** @var \Drupal\islandora_member_of_entailment\Plugin\DatabaseAdapterManagerInterface $manager */
+  $manager = \Drupal::service('plugin.manager.islandora_member_of_entailment.database_adapter');
+
+  $plugin = $manager->getDatabaseAdapterPlugin();
+
+  $plugin->uninstallSchema();
+}

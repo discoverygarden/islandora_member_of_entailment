@@ -1,0 +1,72 @@
+<?php
+
+/**
+ * @file
+ * General hook implementations.
+ */
+
+use Drupal\Core\Entity\EntityInterface;
+use Drupal\islandora\IslandoraUtils;
+use Drupal\node\NodeInterface;
+
+/**
+ * Implements hook_ENTITY_TYPE_insert() for node entities.
+ */
+function islandora_member_of_entailment_node_insert(EntityInterface $entity) : void {
+  assert($entity instanceof NodeInterface);
+
+  if (!$entity->hasField(IslandoraUtils::MEMBER_OF_FIELD)) {
+    // Irrelevant node.
+    return;
+  }
+  $members = $entity->get(IslandoraUtils::MEMBER_OF_FIELD);
+  if ($members->isEmpty()) {
+    // Relevant node, but no parents.
+    return;
+  }
+
+  /** @var \Drupal\islandora_member_of_entailment\Plugin\DatabaseAdapterManagerInterface $manager */
+  $manager = \Drupal::service('plugin.manager.islandora_member_of_entailment.database_adapter');
+
+  $plugin = $manager->getDatabaseAdapterPlugin();
+
+  $plugin->addNode($entity);
+}
+
+/**
+ * Implements hook_ENTITY_TYPE_update() for node entities.
+ */
+function islandora_member_of_entailment_node_update(EntityInterface $entity) : void {
+  assert($entity instanceof NodeInterface);
+
+  if (!$entity->hasField(IslandoraUtils::MEMBER_OF_FIELD)) {
+    return;
+  }
+
+  /** @var \Drupal\islandora_member_of_entailment\Plugin\DatabaseAdapterManagerInterface $manager */
+  $manager = \Drupal::service('plugin.manager.islandora_member_of_entailment.database_adapter');
+
+  $plugin = $manager->getDatabaseAdapterPlugin();
+
+  $plugin->updateNode($entity);
+}
+
+/**
+ * Implements hook_ENTITY_TYPE_delete() for node entities.
+ */
+function islandora_member_of_entailment_node_delete(EntityInterface $entity) : void {
+  assert($entity instanceof NodeInterface);
+
+  if (!$entity->hasField(IslandoraUtils::MEMBER_OF_FIELD)) {
+    // Irrelevant node.
+    return;
+  }
+
+  /** @var \Drupal\islandora_member_of_entailment\Plugin\DatabaseAdapterManagerInterface $manager */
+  $manager = \Drupal::service('plugin.manager.islandora_member_of_entailment.database_adapter');
+
+  $plugin = $manager->getDatabaseAdapterPlugin();
+
+  $plugin->deleteNode($entity);
+
+}

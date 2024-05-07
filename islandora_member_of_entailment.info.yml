@@ -1,0 +1,11 @@
+---
+name: Islandora field_member_of entailment
+type: module
+description: >
+  Facilitate inferences based on Islandora's concept of membership.
+package: Islandora
+core_version_requirement: ^10
+dependencies:
+  - drupal:node
+  - islandora:islandora
+  - islandora:islandora_core_feature

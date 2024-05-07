@@ -15,3 +15,8 @@ jobs:
         uses: actions/checkout@v3
       - name: Run CodeSniffer
         uses: discoverygarden/CodeSniffer@v1
+        with:
+          # XXX: tests are somewhat repetitive due to building similar node
+          # hierarchies; however, to avoid excessive binding between things,
+          # thinking it's better to leave them as-is.
+          phpcpd-exclude: ./tests/src/Kernel
