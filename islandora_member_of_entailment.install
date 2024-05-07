@@ -15,7 +15,12 @@ function islandora_member_of_entailment_install($is_syncing) {
   $plugin = $manager->getDatabaseAdapterPlugin();
 
   $plugin->schema();
-  $plugin->rebuild();
+  if (!$is_syncing) {
+    $plugin->rebuild();
+  }
+  else {
+    drupal_register_shutdown_function([$plugin, 'rebuild']);
+  }
 }
 
 /**
