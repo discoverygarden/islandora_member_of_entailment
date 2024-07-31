@@ -14,6 +14,6 @@ jobs:
       composer_patches: |
         {
           "discoverygarden/islandora_test_support": {
-            "AUCIR-198: Node bundle use": "https://patch-diff.githubusercontent.com/raw/discoverygarden/islandora_test_support/pull/6.patch"
+            "DDST-401: Renamed trait": "https://patch-diff.githubusercontent.com/raw/discoverygarden/islandora_test_support/pull/7.patch"
           }
         }
