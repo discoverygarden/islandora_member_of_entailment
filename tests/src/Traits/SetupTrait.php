@@ -7,7 +7,7 @@ use Drupal\islandora\IslandoraUtils;
 use Drupal\islandora_member_of_entailment\Plugin\DatabaseAdapterInterface;
 use Drupal\islandora_member_of_entailment\Plugin\DatabaseAdapterManagerInterface;
 use Drupal\KernelTests\KernelTestBase;
-use Drupal\Tests\field\Traits\EntityReferenceTestTrait;
+use Drupal\Tests\field\Traits\EntityReferenceFieldCreationTrait;
 use Drupal\Tests\islandora_test_support\Traits\IslandoraContentTypeTestTraits;
 use Drupal\Tests\test_support\Traits\Installs\InstallsModules;
 
@@ -17,7 +17,7 @@ use Drupal\Tests\test_support\Traits\Installs\InstallsModules;
 trait SetupTrait {
 
   use InstallsModules;
-  use EntityReferenceTestTrait;
+  use EntityReferenceFieldCreationTrait;
   use IslandoraContentTypeTestTraits;
 
   /**
