@@ -34,6 +34,14 @@ function islandora_member_of_entailment_views_data() : array {
         'label' => \t('Ancestor node'),
       ],
     ],
+    // Contextual filter for filtering to children of a given container object.
+    'is_descendant_of' => [
+      'title' => t('IMoE: Is descendant of'),
+      'help' => t('Limit to descendants of a given Islandora entity'),
+      'argument' => [
+        'id' => 'islandora_member_of_entailment_argument_is_descendant_of_entity',
+      ],
+    ],
   ];
 
   return $data;
