@@ -2,6 +2,9 @@
 
 namespace Drupal\islandora_member_of_entailment\Plugin\views\field;
 
+use Drupal\Core\Form\FormStateInterface;
+use Drupal\node\Entity\Node;
+use Drupal\node\NodeInterface;
 use Drupal\views\Plugin\views\field\FieldPluginBase;
 use Drupal\views\ResultRow;
 
@@ -17,6 +20,36 @@ class FirstAncestor extends FieldPluginBase {
    */
   public function query() {
     $this->ensureMyTable();
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  protected function defineOptions() {
+    $options = parent::defineOptions();
+    $options['render_type'] = [
+      'default' => 'id',
+    ];
+    return $options;
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function buildOptionsForm(&$form, FormStateInterface $form_state) {
+    $form['render_type'] = [
+      '#type' => 'select',
+      '#required' => TRUE,
+      '#options' => [
+        'id' => $this->t('First ancestor node ID'),
+        'label' => $this->t('First ancestor node label'),
+        'both' => $this->t('First ancestor node ID and label'),
+      ],
+      '#title' => $this->t('Render format'),
+      '#default_value' => $this->options['render_type'],
+      '#description' => $this->t('Choose the render format.'),
+    ];
+    parent::buildOptionsForm($form, $form_state);
   }
 
   /**
@@ -39,10 +72,10 @@ class FirstAncestor extends FieldPluginBase {
    * @param int $nid
    *   The node ID.
    *
-   * @return int|null
+   * @return \Drupal\Component\Render\FormattableMarkup|null
    *   The top-level ancestor ID, or NULL if no ancestor.
    */
-  private function getTopLevelAncestor(int $nid): ?int {
+  private function getTopLevelAncestor(int $nid): ?string {
     // Query to fetch the paths for the given nid.
     $query = \Drupal::database()->select('islandora_member_of_entailment', 'i')
       ->fields('i', ['path'])
@@ -68,9 +101,26 @@ class FirstAncestor extends FieldPluginBase {
       }
     }
 
-    // Return the last value from the longest
-    // path as the first ancestor, or NULL if no paths.
-    return !empty($ancestorPath) ? end($ancestorPath) : NULL;
+    if (!empty($ancestorPath)) {
+      $ancestorId = end($ancestorPath);
+
+      if ($this->options['render_type'] === 'id') {
+        return $ancestorId;
+      }
+
+      // Load the ancestor node.
+      $ancestor = Node::load($ancestorId);
+
+      if ($this->options['render_type'] === 'label') {
+        return $ancestor instanceof NodeInterface ? $ancestor->label() : NULL;
+      }
+
+      if ($this->options['render_type'] === 'both') {
+        return $ancestor instanceof NodeInterface ? $ancestor->label() . " ({$ancestorId})" : NULL;
+      }
+    }
+
+    return NULL;
   }
 
   /**
