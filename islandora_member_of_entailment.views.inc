@@ -42,6 +42,14 @@ function islandora_member_of_entailment_views_data() : array {
         'id' => 'islandora_member_of_entailment_argument_is_descendant_of_entity',
       ],
     ],
+    // Display the top level ancestor.
+    'first_ancestor' => [
+      'title' => t('First ancestor'),
+      'help' => t('Administrative field to show the first ancestor after tracing back from field_media_of.'),
+      'field' => [
+        'id' => 'imoe_first_ancestor',
+      ],
+    ],
   ];
 
   return $data;
