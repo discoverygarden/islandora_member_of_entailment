@@ -2,8 +2,8 @@
 
 namespace Drupal\Tests\islandora_member_of_entailment\Kernel;
 
-use Drupal\islandora\IslandoraUtils;
 use Drupal\Tests\islandora_member_of_entailment\Traits\DiamondBuilderTrait;
+use Drupal\islandora\IslandoraUtils;
 
 /**
  * Test LUT maintance/building with updates.
